@@ -1,6 +1,7 @@
 from imgui_bundle import imgui, imgui_node_editor as ed # type: ignore
 from typing import List, Tuple
 import visa
+from layout import NodeLayout
 from structure import ChannelNode, Node, node_classes
 
 is_first_frame = True
@@ -96,7 +97,7 @@ def node_header(node_id: ed.NodeId, title: str) -> Tuple[imgui.ImVec2, imgui.ImV
     h = imgui.get_item_rect_max().y - imgui.get_item_rect_min().y
     rmax.y += h + padd.y + 4
     return rmin, rmax
-            
+  
 
 def render_node(node: Node):
     node_id = ed.NodeId(node.id)
@@ -109,23 +110,27 @@ def render_node(node: Node):
 
     rmin, rmax = node_header(node_id, node.title)
 
-    imgui.begin_horizontal("content")
-    imgui.spring(0, 0)
-    imgui.begin_vertical("inputs", imgui.ImVec2(0, 0), 0.0)
-    for p in range(len(node.inputs)):
-        render_pin(node, p, ed.PinKind.input)
-    imgui.spring(1, 0)
-    imgui.end_vertical()
+    layout = NodeLayout(node)
+    node.content(layout)
+    layout.render_content()
 
-    imgui.spring(1)    
+    # imgui.begin_horizontal("content")
+    # imgui.spring(0, 0)
+    # imgui.begin_vertical("inputs", imgui.ImVec2(0, 0), 0.0)
+    # for p in range(len(node.inputs)):
+    #     render_pin(node, p, ed.PinKind.input)
+    # imgui.spring(1, 0)
+    # imgui.end_vertical()
 
-    imgui.begin_vertical("outputs", imgui.ImVec2(0, 0), 1.0)
-    for p in range(len(node.outputs)):
-        render_pin(node, p, ed.PinKind.output)
-    imgui.end_vertical()
-    imgui.end_horizontal()
+    # imgui.spring(1)    
 
-    node.drawExtras()
+    # imgui.begin_vertical("outputs", imgui.ImVec2(0, 0), 1.0)
+    # for p in range(len(node.outputs)):
+    #     render_pin(node, p, ed.PinKind.output)
+    # imgui.end_vertical()
+    # imgui.end_horizontal()
+
+    # node.drawExtras()
 
     imgui.end_vertical()
     ed.end_node()

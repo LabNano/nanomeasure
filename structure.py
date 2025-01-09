@@ -3,7 +3,6 @@ from typing import List, Tuple, Set
 import numpy as np
 import visa
 
-
 class IdProvider:
     _next_id: int = 1
     def next_id(self):
@@ -47,6 +46,13 @@ class Node:
     color = imgui.IM_COL32(120, 120, 120, 255)
     def __init__(self):
         self.id = ID.next_id()
+
+    def content(self, layout):
+        for i,_ in enumerate(self.inputs):
+            layout.add_input(i)
+        for o,_ in enumerate(self.outputs):
+            layout.add_output(o)
+        layout.add_content(self.drawExtras)
 
     def drawExtras(self):
         pass
@@ -99,6 +105,7 @@ class PlotNode(MeasurementNode):
 
     
 ChannelNode.outputs = [ReadableChannel()]
+ChannelNode.inputs = [ReadableChannel()]
 WriteConstantNode.inputs = [WritableChannel()]
 WriteRangeNode.inputs = [WritableChannel(), Clock()]
 WriteRangeNode.outputs = [Clock()]
