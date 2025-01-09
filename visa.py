@@ -10,7 +10,7 @@ from collections import deque
 
 rm = pyvisa.ResourceManager()
 
-debug = True
+debug = False
 preview_thread = None
 
 class Instrument:

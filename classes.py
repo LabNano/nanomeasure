@@ -1,7 +1,10 @@
-from imgui_bundle import imgui, imgui_node_editor as ed # type: ignore
-from typing import List, Tuple, Set
+from imgui_bundle import imgui
+from typing import List, Tuple, Set, TYPE_CHECKING
 import numpy as np
 import visa
+
+if TYPE_CHECKING:
+    from layout import NodeLayout
 
 class IdProvider:
     _next_id: int = 1
@@ -47,7 +50,7 @@ class Node:
     def __init__(self):
         self.id = ID.next_id()
 
-    def content(self, layout):
+    def content(self, layout: "NodeLayout"):
         for i,_ in enumerate(self.inputs):
             layout.add_input(i)
         for o,_ in enumerate(self.outputs):
@@ -92,6 +95,14 @@ class WriteConstantNode(Node):
 class WriteRangeNode(Node):
     color = imgui.IM_COL32(148, 111, 199, 255)
     title = "Write Range"
+
+    def content(self, layout):
+        layout.add_input(0)
+        layout.add_output(0)
+        def _():
+            imgui.checkbox("Test", True)
+        layout.add_content(_)
+        layout.add_input(1)
 
 class MeasurementNode(Node):
     color = imgui.IM_COL32(106, 145, 81, 255)
