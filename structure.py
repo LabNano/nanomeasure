@@ -1,5 +1,5 @@
 from imgui_bundle import imgui, imgui_node_editor as ed # type: ignore
-from typing import List, Tuple
+from typing import List, Tuple, Set
 import numpy as np
 import visa
 
@@ -14,25 +14,37 @@ class IdProvider:
         self._next_id = 1
 ID = IdProvider()
 
-class Type:
+class Pin:
     name:str
-
-
-class ReadableChannel(Type):
     color = imgui.IM_COL32(255, 255, 255, 255)
+    connections: Set[Tuple['Node', int]]
+
+    def __init__(self, name = None, color = None):
+        if name:
+            self.name = name
+        if color:
+            self.color = color
+        self.connections = set()
+        pass
+
+class ReadableChannel(Pin):
+    color = imgui.IM_COL32(91, 148, 240, 255)
     name = "Channel"
-    pass
 
 class WritableChannel(ReadableChannel):
-    color = imgui.IM_COL32(255, 255, 255, 255)
-    pass
+    color = imgui.IM_COL32(255, 151, 107, 255)
+
+class Clock(Pin):
+    color = imgui.IM_COL32(164, 111, 199, 255)
+    name = "Clock"
+
 
 class Node:
-    inputs: List[Tuple[str, type]] = []
-    outputs: List[Tuple[str, type]] = []
+    inputs: List[Pin] = []
+    outputs: List[Pin] = []
     id: int
     title: str
-    color = imgui.IM_COL32(255, 255, 255, 255)
+    color = imgui.IM_COL32(120, 120, 120, 255)
     def __init__(self):
         self.id = ID.next_id()
 
@@ -46,7 +58,7 @@ class ChannelNode(Node):
     def __init__(self, instrument: visa.Instrument):
         self.instrument = instrument
         self.title = instrument.name
-        self.outputs = [(c[0], WriteNode | MeasurementNode) for c in  instrument.channels]
+        self.outputs = [WritableChannel(c[0]) if c[3] else ReadableChannel(c[0]) for c in  instrument.channels]
         visa.preview_thread.add_instrument(instrument)
         super().__init__()
 
@@ -68,13 +80,15 @@ class ChannelNode(Node):
                              0 if len(self.instrument.preview_buffer) == 0 else np.max(self.instrument.preview_buffer), 
                              imgui.ImVec2(300, 60))
 
-class WriteNode(Node):
-    title = "Write Node"
+class WriteConstantNode(Node):
+    title = "Write Constant"
 
 class WriteRangeNode(Node):
+    color = imgui.IM_COL32(148, 111, 199, 255)
     title = "Write Range"
 
 class MeasurementNode(Node):
+    color = imgui.IM_COL32(106, 145, 81, 255)
     pass
 
 class HeatmapNode(MeasurementNode):
@@ -84,9 +98,12 @@ class PlotNode(MeasurementNode):
     title = "Plot Node"
 
     
-ChannelNode.outputs = [("Channel", WriteNode | MeasurementNode)]
-ChannelNode.inputs = [("Test", WriteNode | MeasurementNode)]
-WriteNode.inputs = [("Channel", ChannelNode), ("Clock", WriteNode)]
-WriteNode.outputs = [("Clock", MeasurementNode | WriteNode)]
-HeatmapNode.inputs = [("X", ChannelNode), ("Y", ChannelNode), ("Z", ChannelNode)]
-PlotNode.inputs = [("X", ChannelNode), ("Y", ChannelNode)]
+ChannelNode.outputs = [ReadableChannel()]
+WriteConstantNode.inputs = [WritableChannel()]
+WriteRangeNode.inputs = [WritableChannel(), Clock()]
+WriteRangeNode.outputs = [Clock()]
+HeatmapNode.inputs = [Clock(), ReadableChannel("X"), ReadableChannel("Y"), ReadableChannel("Z")]
+PlotNode.inputs = [Clock(), ReadableChannel("X"), ReadableChannel("Y")]
+
+
+node_classes = [WriteConstantNode, WriteRangeNode, HeatmapNode, PlotNode]

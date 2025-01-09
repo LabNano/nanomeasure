@@ -109,7 +109,8 @@ class PreviewThread(threading.Thread):
             print(f"Error: {e}")
         finally:
             for inst in self.instruments:
-                inst.resource.close()
+                inst.preview = False
+                # inst.resource.close()
             print("Preview thread terminated.")
 
     def stop(self):
