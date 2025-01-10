@@ -2,7 +2,7 @@ import threading
 import time
 import importlib
 import types
-from typing import List, Set
+from typing import List, Set, Tuple, Callable
 from glob import glob
 import pyvisa
 from pyvisa.resources import Resource
@@ -10,7 +10,7 @@ from collections import deque
 
 rm = pyvisa.ResourceManager()
 
-debug = False
+debug = True
 preview_thread = None
 
 class Instrument:
@@ -37,7 +37,7 @@ class Instrument:
         return self.name
     
     @property
-    def channels(self):
+    def channels(self) -> List[Tuple[str, str, Callable, Callable]]:
         if hasattr(self.module, "channels"):
             return self.module.channels
         return []
