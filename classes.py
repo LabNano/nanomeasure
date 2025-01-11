@@ -129,9 +129,11 @@ class WriteRangeNode(Node):
         self.points = 1
         self.startwait = 0.0
         self.step_time = 0.0
+        self.clock_type = 0
         super().__init__()
 
     def content(self, layout):
+        conn = list(self.inputs[1].connections)
         layout.add_input(0)
         layout.add_output(0)
         def _():
@@ -148,17 +150,21 @@ class WriteRangeNode(Node):
             sv_changed, self.start_value = imgui.input_float("##a", self.start_value)
             imgui.end_horizontal()
 
-            imgui.begin_horizontal("step")
-            imgui.spring(1)
-            imgui.text("Step")
-            stp_changed, self.step = imgui.input_float("##c", self.step)
-            imgui.end_horizontal()
+            
+            if self.clock_type == 1:
+                stp_changed, sw_changed = (False, False)
+            else:
+                imgui.begin_horizontal("step")
+                imgui.spring(1)
+                imgui.text("Step")
+                stp_changed, self.step = imgui.input_float("##c", self.step)
+                imgui.end_horizontal()
 
-            imgui.begin_horizontal("startwait")
-            imgui.spring(1)
-            imgui.text("Start Wait")
-            sw_changed, self.startwait = imgui.input_float("##e", self.startwait)
-            imgui.end_horizontal()
+                imgui.begin_horizontal("startwait")
+                imgui.spring(1)
+                imgui.text("Start Wait")
+                sw_changed, self.startwait = imgui.input_float("##e", self.startwait)
+                imgui.end_horizontal()
             imgui.end_vertical()
             imgui.pop_id()
 
@@ -173,17 +179,20 @@ class WriteRangeNode(Node):
             ev_changed, self.end_value = imgui.input_float("##b", self.end_value)
             imgui.end_horizontal()
 
-            imgui.begin_horizontal("points")
-            imgui.spring(1)
-            imgui.text("Points")
-            pnt_changed, self.points = imgui.input_int("##d", self.points, 0)
-            imgui.end_horizontal()
+            if self.clock_type == 1:
+                pnt_changed, st_changed, = False, False
+            else:
+                imgui.begin_horizontal("points")
+                imgui.spring(1)
+                imgui.text("Points")
+                pnt_changed, self.points = imgui.input_int("##d", self.points, 0)
+                imgui.end_horizontal()
 
-            imgui.begin_horizontal("stept")
-            imgui.spring(1)
-            imgui.text("Step Time")
-            st_changed, self.step_time = imgui.input_float("##f", self.step_time)
-            imgui.end_horizontal()
+                imgui.begin_horizontal("stept")
+                imgui.spring(1)
+                imgui.text("Step Time")
+                st_changed, self.step_time = imgui.input_float("##f", self.step_time)
+                imgui.end_horizontal()
             imgui.end_vertical()
             imgui.pop_id()
             imgui.end_horizontal()
@@ -212,10 +221,9 @@ class WriteRangeNode(Node):
         layout.add_content(_)
         layout.add_input(1)
         def _():
-            conn = list(self.inputs[1].connections)
             if conn:
                 imgui.push_item_width(100)
-                imgui.combo("##type", 0, ["Sync", "Scan"])
+                _, self.clock_type = imgui.combo("##type", self.clock_type, ["Scan", "Sync"])
                 imgui.pop_item_width()
         layout.add_content(_)
 
@@ -224,14 +232,14 @@ class MeasurementNode(Node):
     pass
 
 class HeatmapNode(MeasurementNode):
-    title = "Heatmap Node"
+    title = "Heatmap"
 
     def __init__(self):
         self.inputs = [Clock(), ReadableChannel("X"), ReadableChannel("Y"), ReadableChannel("Z")]
         super().__init__()
 
 class PlotNode(MeasurementNode):
-    title = "Plot Node"
+    title = "Plot"
 
     def __init__(self):
         self.inputs = [Clock(), ReadableChannel("X"), ReadableChannel("Y")]

@@ -63,10 +63,7 @@ def create_links():
                         input_node.on_connect(i, ed.PinKind.input)
                         output_node.outputs[o].connections.add((input_node, i))
                         output_node.on_connect(o, ed.PinKind.output)
-                        print(input_node, input_node.id, i)
-                        print(print(o.connections) for o in input_node.outputs)
-                        print(output_node, output_node.id, o)
-                        print(print(o.connections) for o in output_node.outputs)
+                        state.save_state()
                 else:
                     showLabel("Incompatible types", imgui.ImVec4(0.5, 0.5, 0.5, 1))
                     ed.reject_new_item(imgui.ImVec4(0.5, 0.5, 0.5, 1), 2.0)
@@ -85,6 +82,18 @@ def create_links():
                     output_node = state.get_node_by_id(output_node_id)
                     input_node.inputs[i].connections.clear()
                     output_node.outputs[o].connections.remove((input_node, i))
+
+        deleted_node_id = ed.NodeId()
+        while ed.query_deleted_node(deleted_node_id):
+            if ed.accept_deleted_item():
+                node = state.get_node_by_id(deleted_node_id.id())
+                for i,inp in enumerate(node.inputs):
+                    for c in inp.connections:
+                        c[0].outputs[c[1]].connections.remove((node, i))
+                for o,out in enumerate(node.outputs):
+                    for c in out.connections:
+                        c[0].inputs[c[1]].connections.remove((node, o))
+                state.nodes.remove(node)
         ed.end_delete()
 def render_link():
     for node in state.nodes:
@@ -129,6 +138,14 @@ def render_pin(node: Node, pin: int, kind: ed.PinKind = ed.PinKind.input):
 
     imgui.get_window_draw_list().add_circle_filled(center, size/2, pin_type.color)
     imgui.end_horizontal()
+    mn = imgui.get_item_rect_min()
+    mx = imgui.get_item_rect_max()
+    mx.y += 4
+    if kind == ed.PinKind.output:
+        mx.x = center.x
+    else:
+        mn.x = center.x
+    ed.pin_rect(mn, mx)
     imgui.pop_id()
     ed.end_pin()
 

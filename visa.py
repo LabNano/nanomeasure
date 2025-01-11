@@ -13,6 +13,13 @@ rm = pyvisa.ResourceManager()
 debug = True
 preview_thread = None
 
+modules = {}
+for module in [m[:-3] for m in glob("drivers/*.py")]:
+    try:
+        modules[module] = importlib.import_module(module.replace("/","."))
+    except:
+        print("Failed to load module ", module)
+
 class Instrument:
     def __init__(self,address: str, resource: Resource, module: types.ModuleType):
         self.resource = resource
@@ -26,30 +33,23 @@ class Instrument:
 
     @property
     def name(self):
-        if hasattr(self.module, "name"):
-            return self.module.name
+        if hasattr(modules[self.module], "name"):
+            return modules[self.module].name
         return self.idn
     
     @property
     def short_name(self):
-        if hasattr(self.module, "short_name"):
-            return self.module.short_name
+        if hasattr(modules[self.module], "short_name"):
+            return modules[self.module].short_name
         return self.name
     
     @property
     def channels(self) -> List[Tuple[str, str, Callable, Callable]]:
-        if hasattr(self.module, "channels"):
-            return self.module.channels
+        if hasattr(modules[self.module], "channels"):
+            return modules[self.module].channels
         return []
 
 def find_resources() -> List[Instrument]:
-    modules = []
-    for module in [m[:-3] for m in glob("drivers/*.py")]:
-        try:
-            modules = modules + [importlib.import_module(module.replace("/","."))]
-        except:
-            print("Failed to load module ", module)
-
     resources = []
     for r in rm.list_resources():
         if r.startswith("ASRL"):
@@ -59,10 +59,10 @@ def find_resources() -> List[Instrument]:
             idn = inst.query("*IDN?")
             for m in modules:
                 try:
-                    if m.match_idn(idn):
+                    if modules[m].match_idn(idn):
                         resources = resources + [Instrument(r, inst, m)]
                 except:
-                    print("Failed to match ", m.name)
+                    print("Failed to match ", modules[m].name)
         except:
             print("Failed to query", r)
         finally:

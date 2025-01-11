@@ -1,9 +1,22 @@
 from imgui_bundle import imgui_node_editor as ed # type: ignore
 from typing import List, Tuple
+import pickle
 
 from classes import Node
 
 nodes: List[Node] = []
+
+def save_state():
+    with open("save/state.pkl", "wb") as f:
+        pickle.dump(nodes, f)
+
+def load_state():
+    global nodes
+    try:
+        with open("save/state.pkl", "rb") as f:
+            nodes = pickle.load(f)
+    except FileNotFoundError:
+        nodes = []
 
 def get_node_by_id(id: int) -> Node:
     for node in nodes:
