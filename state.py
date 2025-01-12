@@ -2,7 +2,7 @@ from imgui_bundle import imgui_node_editor as ed # type: ignore
 from typing import List, Tuple
 import pickle
 
-from classes import Node
+from classes import Node, ID
 
 nodes: List[Node] = []
 
@@ -15,6 +15,7 @@ def load_state():
     try:
         with open("save/state.pkl", "rb") as f:
             nodes = pickle.load(f)
+            ID._next_id = max(node.id for node in nodes) + 1
     except FileNotFoundError:
         nodes = []
 

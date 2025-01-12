@@ -10,15 +10,11 @@ from pyvisa.resources import Resource
 def read_voltage(resource: Resource) -> float:
     r = resource.query("MEAS:VOLT:DC? DEF,DEF")
     return float(r)
-
 def set_voltage(resource: Resource, value: float):
     pass
-
 def read_current(resource: Resource) -> float:
     r = resource.query("MEAS:CURR:DC? DEF,DEF")
     return float(r)
-
-
 def read_resistance(resource: Resource) -> float:
     r = resource.query("MEAS:RES? DEF,DEF")
     return float(r)

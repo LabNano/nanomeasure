@@ -1,9 +1,9 @@
 
 from imgui_bundle import imgui, imgui_node_editor as ed # type: ignore
 from typing import List, Tuple
-from classes import Node
+from classes import Node, node_classes
 import state
-
+import measure
 
 
 def showLabel(label: str, color: imgui.ImVec4):
@@ -16,6 +16,23 @@ def showLabel(label: str, color: imgui.ImVec4):
     recmax = imgui.get_cursor_screen_pos() + size + padd
     imgui.get_window_draw_list().add_rect_filled(recmin, recmax, imgui.get_color_u32(color), size.y * 0.15)
     imgui.text_unformatted(label)
+
+def handle_menu():
+    ed.suspend()
+    if ed.show_background_context_menu():
+        imgui.open_popup("Add Node")
+
+    if imgui.begin_popup("Add Node"):
+        imgui.text("Add Node")
+        imgui.separator()
+        for node in node_classes:
+            # imgui.push_style_color(imgui.Col_.text, node.color)
+            if imgui.menu_item_simple(node.title):
+                state.nodes += [node()]
+                state.save_state()
+            # imgui.pop_style_color()
+        imgui.end_popup()
+    ed.resume()
 
 create_color = imgui.ImVec4(1, 1, 1, 1)
 def create_links():
@@ -82,6 +99,7 @@ def create_links():
                     output_node = state.get_node_by_id(output_node_id)
                     input_node.inputs[i].connections.clear()
                     output_node.outputs[o].connections.remove((input_node, i))
+                    state.save_state()
 
         deleted_node_id = ed.NodeId()
         while ed.query_deleted_node(deleted_node_id):
@@ -94,8 +112,9 @@ def create_links():
                     for c in out.connections:
                         c[0].inputs[c[1]].connections.remove((node, o))
                 state.nodes.remove(node)
+                state.save_state()
         ed.end_delete()
-def render_link():
+def render_links():
     for node in state.nodes:
         for o, out in enumerate(node.outputs):
             # print(out.name, out.connections)
@@ -171,11 +190,12 @@ def render_node(node: Node) -> ed.NodeId:
     imgui.begin_vertical("node")
 
     rmin, rmax = node_header(node_id, node.title)
-
+    
+    imgui.begin_disabled(measure.is_measuring)
     layout = NodeLayout(node)
     node.content(layout)
     layout.render_content()
-
+    imgui.end_disabled()
 
     imgui.end_vertical()
     ed.end_node()

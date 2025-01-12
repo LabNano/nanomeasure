@@ -63,7 +63,7 @@ def compliance(render = True) -> int:
                         writing += 1
                     if writing > 1:
                         if render:
-                            imgui.begin_horizontal(f"complianceerror{errors}")
+                            imgui.begin_horizontal(f"complianceerror{errors}", size=imgui.ImVec2(imgui.get_content_region_avail().x, 0))
                             imgui.text_colored(imgui.color_convert_u32_to_float4(node.color), node.title)
                             imgui.text_colored(imgui.color_convert_u32_to_float4(o.color), o.name)
                             imgui.text("cannot be written to by more than one node")
@@ -71,7 +71,7 @@ def compliance(render = True) -> int:
                         errors += 1
     if not measurements:
         if render:
-            imgui.begin_horizontal(f"complianceerror{errors}")
+            imgui.begin_horizontal(f"complianceerror{errors}", size=imgui.ImVec2(imgui.get_content_region_avail().x, 0))
             imgui.text("You must have at least one")
             imgui.text_colored(imgui.color_convert_u32_to_float4(MeasurementNode.color), "measurement node")
             imgui.end_horizontal()
@@ -80,7 +80,7 @@ def compliance(render = True) -> int:
     if scans:
         if not without_inputs:
             if render:
-                imgui.begin_horizontal(f"complianceerror{errors}")
+                imgui.begin_horizontal(f"complianceerror{errors}", size=imgui.ImVec2(imgui.get_content_region_avail().x, 0))
                 imgui.text("You must have at least one scan without an input clock")
                 imgui.end_horizontal()
             errors += 1
@@ -104,10 +104,13 @@ def info():
             if node.inputs[0].connections:
                 c = list(node.inputs[0].connections)[0]
                 # imgui.text_wrapped(f"{c[0].instrument.channels[c[1]][0]} at {c[0].instrument.name} from {node.start_value:.2e} to {node.end_value:.2e} in {node.points} points")
-                imgui.begin_horizontal(f"channels{c[0].id}", size=imgui.ImVec2(imgui.get_content_region_avail().x, 0))
+                imgui.begin_horizontal(f"channels{node.id}.{c[0].id}", size=imgui.ImVec2(imgui.get_content_region_avail().x, 0))
                 imgui.text_colored(imgui.color_convert_u32_to_float4(c[0].outputs[c[1]].color), c[0].instrument.channels[c[1]][0])
+                imgui.spring(0, 4)
                 imgui.text("at")
+                imgui.spring(0, 4)
                 imgui.text_colored(imgui.color_convert_u32_to_float4(c[0].color), c[0].instrument.name)
+                imgui.spring(0, 4)
                 imgui.text(f"from {node.start_value:.2e} to {node.end_value:.2e} in {node.points} points")
                 imgui.end_horizontal()
         if isinstance(node, WriteConstantNode) and node.inputs[0].connections:
@@ -115,4 +118,55 @@ def info():
                 c = list(node.inputs[0].connections)[0]
                 imgui.text_wrapped(f"{c[0].instrument.channels[c[1]][0]} at {c[0].instrument.name} to constant {node.value:.2e}")
                 # imgui.text_wrapped(f"{c[0].instrument.channels[c[1]][0]} at {c[0].instrument.name} to constant {node.value:.2e}")
+    
+    connected_pins = [pin for node in state.nodes for pin in node.outputs if isinstance(node, ChannelNode) if pin.connections]
+    imgui.separator_text(f"Reading {len(connected_pins)} channel{'s' if len(connected_pins) != 1 else ''}")
+    
+    for node in state.nodes:
+        if isinstance(node, ChannelNode):
+            channels = [pin for pin in node.outputs if pin.connections]
+            if channels:
+                imgui.begin_horizontal(f"readchannels{node.id}", size=imgui.ImVec2(imgui.get_content_region_avail().x, 0))
+                imgui.text_colored(imgui.color_convert_u32_to_float4(node.color), node.title)
+                imgui.spring(0, 4)
+                imgui.text(f"on channel{"s" if len(channels) != 1 else ""}")
+                imgui.spring(0, 4)
+                for i, c in enumerate(channels):
+                    imgui.text_colored(imgui.color_convert_u32_to_float4(c.color), c.name + (", " if i < len(channels) - 1 else ""))
+                    imgui.spring(0, 0)
+                imgui.end_horizontal()
+        
+    
     imgui.end_vertical()
+
+def render_preview():
+    imgui.begin_vertical("info", size=imgui.ImVec2(imgui.get_content_region_avail().x, imgui.get_content_region_avail().y))
+    imgui.spring(0)
+    
+    info()
+    imgui.spring(1)
+    errors = compliance()
+    imgui.spring(0, 20)
+
+
+
+    if not errors and not is_measuring:
+        imgui.push_style_color(imgui.Col_.button, imgui.ImVec4(103/255, 153/255, 103/255, 1))
+        imgui.push_style_color(imgui.Col_.button_hovered, imgui.ImVec4(89/255, 133/255, 90/255, 1))
+        imgui.push_style_color(imgui.Col_.button_active, imgui.ImVec4(69/255, 105/255, 70/255, 1))
+    else:
+        imgui.push_style_color(imgui.Col_.button, imgui.ImVec4(105/255, 105/255, 105/255, 1))
+        imgui.push_style_color(imgui.Col_.button_hovered, imgui.ImVec4(90/255, 90/255, 90/255, 1))
+        imgui.push_style_color(imgui.Col_.button_active, imgui.ImVec4(75/255, 75/255, 75/255, 1))
+    if imgui.button("Measuring..." if is_measuring else "Measure", imgui.ImVec2(imgui.get_content_region_avail().x, 50)):
+        if not errors and not is_measuring:
+            start_measure()
+    imgui.pop_style_color()
+    imgui.pop_style_color()
+    imgui.pop_style_color()
+    imgui.end_vertical()
+
+def start_measure():
+    global is_measuring
+    is_measuring = True
+    imgui.set_window_focus("Measure")
