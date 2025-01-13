@@ -1,6 +1,8 @@
-import state
+import threading
 from imgui_bundle import imgui
 from classes import WriteRangeNode, WriteConstantNode, Node, Pin, MeasurementNode, ChannelNode
+import state
+import visa
 
 is_measuring = False
 
@@ -139,6 +141,12 @@ def info():
     
     imgui.end_vertical()
 
+def make_tab_visible(name: str):
+    window = imgui.internal.find_window_by_name(name)
+    if not window or not window.dock_node or not window.dock_node.tab_bar:
+        return
+    window.dock_node.tab_bar.next_selected_tab_id = window.tab_id
+
 def render_preview():
     imgui.begin_vertical("info", size=imgui.ImVec2(imgui.get_content_region_avail().x, imgui.get_content_region_avail().y))
     imgui.spring(0)
@@ -166,7 +174,57 @@ def render_preview():
     imgui.pop_style_color()
     imgui.end_vertical()
 
+
+class MeasurementData():
+    pass 
+
+
+measurement_thread = None
 def start_measure():
-    global is_measuring
-    is_measuring = True
+    global measurement_thread
+    visa.disable_preview()
     imgui.set_window_focus("Measure")
+    measurement_thread = MeasurementThread()
+    measurement_thread.start()
+
+def stop_measure():
+    global measurement_thread
+    if measurement_thread:
+        measurement_thread.stop()
+
+class MeasurementThread(threading.Thread):
+    def __init__(self):
+        super().__init__()
+        self.keep_running = True
+
+    def get_first_scan_node(self):
+        for node in state.nodes:
+            if isinstance(node, WriteRangeNode) and not len(node.inputs[0].connections):
+                return node
+        return None
+
+
+    def run(self):
+        global is_measuring
+        is_measuring = True
+        print("Starting measurement")
+        measurement_frames = 0
+
+        first_node = self.get_first_scan_node()
+
+
+        frame = 0
+        while self.keep_running:
+            # print("Hello")
+            frame += 1
+            pass
+            
+        is_measuring = False
+        print("Measurement finished")
+
+    def stop(self):
+        self.keep_running = False
+        self.join()
+        make_tab_visible("Measurement Info")
+        imgui.set_window_focus("Node Editor")
+        print("Measurement interrupted")

@@ -71,7 +71,6 @@ class ChannelNode(Node):
         self.instrument = instrument
         self.title = instrument.name
         self.outputs = [WritableChannel(c[0]) if c[3] else ReadableChannel(c[0]) for c in  instrument.channels]
-        visa.preview_thread.add_instrument(instrument)
         super().__init__()
 
     def drawExtras(self):

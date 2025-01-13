@@ -4,6 +4,7 @@ from layout import render_node, render_links, create_links, handle_menu
 from classes import ChannelNode
 import measure
 import state
+import platform
 
 def make_tab_visible(name: str):
     window = imgui.internal.find_window_by_name(name)
@@ -21,6 +22,11 @@ def gui():
     dock_id = imgui.get_id("DockSpace")
     imgui.dock_space(dock_id, imgui.ImVec2(0, 0))
     
+    if imgui.is_key_chord_pressed((imgui.Key.mod_super if platform.system() == "Darwin" else imgui.Key.mod_ctrl) | imgui.Key.c) or imgui.is_key_pressed(imgui.Key.escape):
+        visa.disable_preview()
+        measure.stop_measure()
+
+    
     if is_first_frame:
         imgui.internal.dock_builder_remove_node(dock_id)
         imgui.internal.dock_builder_add_node(dock_id)
@@ -33,7 +39,6 @@ def gui():
         imgui.internal.dock_builder_dock_window("Properties", ids.id_at_dir)
         imgui.internal.dock_builder_dock_window("Measure", ids.id_at_opposite_dir)
         # t = imgui.internal.dock_builder_add_node(dock_id)
-
 
         imgui.internal.dock_builder_finish(dock_id)
     
