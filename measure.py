@@ -21,7 +21,7 @@ def compliance(render = True) -> int:
         _error = ""
         if required and not len(pin.connections):
             _error = "must have a connection"
-        if len(pin.connections) > n:
+        if n and len(pin.connections) > n:
             _error = f"cannot have more than {n} connection{'s' if n > 1 else ''}"
         if _error:
             if render:
@@ -44,7 +44,19 @@ def compliance(render = True) -> int:
             if not len(node.inputs[1].connections):
                 without_inputs += 1
             enforce_connections(node, node.inputs[0])
-            enforce_connections(node, node.outputs[0], 1, 1)
+            enforce_connections(node, node.outputs[0], 0, 1)
+            writing = 0
+            for c in node.outputs[0].connections:
+                if isinstance(c[0], WriteRangeNode):
+                    writing += 1
+                if writing > 1:
+                    if render:
+                        imgui.begin_horizontal(f"complianceerror{errors}", size=imgui.ImVec2(imgui.get_content_region_avail().x, 0))
+                        imgui.text_colored(imgui.color_convert_u32_to_float4(node.color), node.title)
+                        imgui.text_colored(imgui.color_convert_u32_to_float4(node.outputs[0].color), node.outputs[0].name)
+                        imgui.text("cannot connect to multiple scan nodes")
+                        imgui.end_horizontal()
+                    errors += 1
         
         if isinstance(node, WriteConstantNode):
             consts.append(node)
@@ -60,17 +72,29 @@ def compliance(render = True) -> int:
         if isinstance(node, ChannelNode):
             for o in node.outputs:
                 writing = 0
+                reading = 0
                 for c in o.connections:
                     if isinstance(c[0], WriteRangeNode) or isinstance(c[0], WriteConstantNode):
                         writing += 1
-                    if writing > 1:
-                        if render:
-                            imgui.begin_horizontal(f"complianceerror{errors}", size=imgui.ImVec2(imgui.get_content_region_avail().x, 0))
-                            imgui.text_colored(imgui.color_convert_u32_to_float4(node.color), node.title)
-                            imgui.text_colored(imgui.color_convert_u32_to_float4(o.color), o.name)
-                            imgui.text("cannot be written to by more than one node")
-                            imgui.end_horizontal()
-                        errors += 1
+                    elif isinstance(c[0], MeasurementNode):
+                        reading += 1
+                if writing > 1:
+                    if render:
+                        imgui.begin_horizontal(f"complianceerror{errors}", size=imgui.ImVec2(imgui.get_content_region_avail().x, 0))
+                        imgui.text_colored(imgui.color_convert_u32_to_float4(node.color), node.title)
+                        imgui.text_colored(imgui.color_convert_u32_to_float4(o.color), o.name)
+                        imgui.text("cannot be written to by more than one node")
+                        imgui.end_horizontal()
+                    errors += 1
+                if writing and reading:
+                    if render:
+                        imgui.begin_horizontal(f"complianceerror{errors}", size=imgui.ImVec2(imgui.get_content_region_avail().x, 0))
+                        imgui.text_colored(imgui.color_convert_u32_to_float4(node.color), node.title)
+                        imgui.text_colored(imgui.color_convert_u32_to_float4(o.color), o.name)
+                        imgui.text("cannot be set to write and read at the same time")
+                        imgui.end_horizontal()
+                    errors += 1
+                    
     if not measurements:
         if render:
             imgui.begin_horizontal(f"complianceerror{errors}", size=imgui.ImVec2(imgui.get_content_region_avail().x, 0))
@@ -83,7 +107,13 @@ def compliance(render = True) -> int:
         if not without_inputs:
             if render:
                 imgui.begin_horizontal(f"complianceerror{errors}", size=imgui.ImVec2(imgui.get_content_region_avail().x, 0))
-                imgui.text("You must have at least one scan without an input clock")
+                imgui.text("You must have at least one scan without an input loop")
+                imgui.end_horizontal()
+            errors += 1
+        if without_inputs > 1:
+            if render:
+                imgui.begin_horizontal(f"complianceerror{errors}", size=imgui.ImVec2(imgui.get_content_region_avail().x, 0))
+                imgui.text("You cannot have more than one scan without an input loop")
                 imgui.end_horizontal()
             errors += 1
     # else:
@@ -167,7 +197,9 @@ def render_preview():
         imgui.push_style_color(imgui.Col_.button_hovered, imgui.ImVec4(90/255, 90/255, 90/255, 1))
         imgui.push_style_color(imgui.Col_.button_active, imgui.ImVec4(75/255, 75/255, 75/255, 1))
     if imgui.button("Measuring..." if is_measuring else "Measure", imgui.ImVec2(imgui.get_content_region_avail().x, 50)):
-        if not errors and not is_measuring:
+        if is_measuring:
+            stop_measure()
+        elif not errors:
             start_measure()
     imgui.pop_style_color()
     imgui.pop_style_color()
@@ -215,6 +247,7 @@ class MeasurementThread(threading.Thread):
 
         frame = 0
         while self.keep_running:
+            
             # print("Hello")
             frame += 1
             pass

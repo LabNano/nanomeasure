@@ -120,7 +120,7 @@ class WriteRangeNode(Node):
     title = "Write Range"
 
     def __init__(self):
-        self.inputs = [WritableChannel(), Clock()]
+        self.inputs = [WritableChannel(), Clock("Loop")]
         self.outputs = [Clock()]
         self.start_value = 0.0
         self.end_value = 0.0
@@ -132,11 +132,19 @@ class WriteRangeNode(Node):
         super().__init__()
 
     def content(self, layout):
+        _conn = list(self.inputs[0].connections)
         conn = list(self.inputs[1].connections)
         layout.add_input(0)
         layout.add_output(0)
+        if _conn and isinstance(_conn[0][0], ChannelNode):
+            self.outputs[0].name = _conn[0][0].instrument.short_name + " " + _conn[0][0].outputs[_conn[0][1]].name
+        else:
+            self.outputs[0].name = "Value"
         def _():
             imgui.push_item_width(50)
+
+            imgui.spacing()
+            imgui.spacing()
 
             imgui.begin_horizontal("range")
             imgui.spring(1)
@@ -148,7 +156,6 @@ class WriteRangeNode(Node):
             imgui.text("Start")
             sv_changed, self.start_value = imgui.input_float("##a", self.start_value)
             imgui.end_horizontal()
-
             
             if self.clock_type == 1:
                 stp_changed, sw_changed = (False, False)
@@ -234,14 +241,14 @@ class HeatmapNode(MeasurementNode):
     title = "Heatmap"
 
     def __init__(self):
-        self.inputs = [Clock(), ReadableChannel("X"), ReadableChannel("Y"), ReadableChannel("Z")]
+        self.inputs = [Clock("X"), Clock("Y"), ReadableChannel("Z")]
         super().__init__()
 
 class PlotNode(MeasurementNode):
     title = "Plot"
 
     def __init__(self):
-        self.inputs = [Clock(), ReadableChannel("X"), ReadableChannel("Y")]
+        self.inputs = [Clock("X"), ReadableChannel("Y")]
         super().__init__()
 
 

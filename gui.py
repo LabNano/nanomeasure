@@ -54,7 +54,7 @@ def gui():
     # Those functions are nor properly ported. It may cause segfaults
     s = ed.NodeId()
     _objects_selected = ed.get_selected_object_count()
-    _nodes_selected = ed.get_selected_nodes(s, _objects_selected)
+    _nodes_selected = ed.get_selected_nodes(s, 1)
     _old_node = _selected_node
     if not _nodes_selected:
         _selected_node = None
