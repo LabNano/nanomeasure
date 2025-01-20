@@ -42,7 +42,11 @@ class Instrument:
             instruments.add(self) #Instrument will not be added if the connection fails
             print(f"Connected to: {self.resource.query('*IDN?')}")
         except Exception as e:
-            print(f"Error connecting to {self.name}: {e}")
+            if debug and modules[self.module].match_idn("TEST"):
+                instruments.add(self)
+                print(f"Connected to: {self.name} (TEST)")
+            else:
+                print(f"Error connecting to {self.name}: {e}")
 
     @property
     def name(self):
@@ -80,8 +84,11 @@ def find_resources() -> List[Instrument]:
             print("Failed to query", r)
         finally:
             inst.close()
-    if debug and not resources:
-        return [Instrument("TEST::INSTR", None, m) for m in modules]
+    if debug:
+        for m in modules:
+            if modules[m].match_idn("TEST"):
+                resources = resources + [Instrument("TEST::INSTR", None, m)]
+        # return [Instrument("TEST::INSTR", None, m) for m in modules]
     return resources
 
 #KEITHLEY INSTRUMENTS INC.,MODEL 2100,1,01.08-01-01

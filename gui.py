@@ -1,6 +1,6 @@
 from imgui_bundle import imgui, immapp, hello_imgui, imgui_node_editor as ed # type: ignore
 import visa
-from layout import render_node, render_links, create_links, handle_menu
+from layout import render_node, render_links, create_links, handle_menu, render_measurement, generate_dock_binary_tree
 from classes import ChannelNode
 import measure
 import state
@@ -20,6 +20,7 @@ def gui():
     global _nodes_selected
     global _selected_node
     dock_id = imgui.get_id("DockSpace")
+    measurement_dock_id = imgui.get_id("MeasurementDockSpace")
     imgui.dock_space(dock_id, imgui.ImVec2(0, 0))
     
     if imgui.is_key_chord_pressed((imgui.Key.mod_super if platform.system() == "Darwin" else imgui.Key.mod_ctrl) | imgui.Key.c) or imgui.is_key_pressed(imgui.Key.escape):
@@ -75,8 +76,30 @@ def gui():
     measure.render_preview()
     imgui.end()
 
+    # if measure.is_measuring:
     imgui.begin("Measure")
+    imgui.dock_space(measurement_dock_id, imgui.ImVec2(0, 0))
     imgui.end()
+
+    render_measurement(measurement_dock_id)
+
+
+    # __n = 1
+    # if is_first_frame:
+    #     imgui.internal.dock_builder_remove_node(measurement_dock_id)
+    #     imgui.internal.dock_builder_add_node(measurement_dock_id)
+
+    #     leaves = generate_dock_binary_tree(measurement_dock_id, __n)
+    #     for i, leaf in enumerate(leaves):
+    #         imgui.internal.dock_builder_dock_window(f"Split {i}", leaf)
+    #         print(f"Split {i}", leaf)
+
+    #     imgui.internal.dock_builder_finish(measurement_dock_id)
+
+    # for i in range(__n):
+    #     imgui.begin(f"Split {i}")
+    #     imgui.text(f"Split {i}")
+    #     imgui.end()
 
     imgui.begin("Properties")
     imgui.end()
@@ -92,9 +115,11 @@ def main():
     visa.preview_thread.start()
 
     state.load_state()
+    for instrument in visa.find_resources():
+        state.available_channels += [ChannelNode(instrument)]
     if not state.nodes:
-        for instrument in visa.find_resources():
-            state.nodes += [ChannelNode(instrument)]
+        for instrument in state.available_channels:
+            state.nodes += [instrument]
 
 
     params = immapp.SimpleRunnerParams(
@@ -102,6 +127,7 @@ def main():
         window_title="Nano Measure",
     ).to_runner_params()
     params.imgui_window_params.enable_viewports = True
+    params.fps_idling = hello_imgui.FpsIdling(enable_idling=False)
     params.ini_filename = "save/layout.ini"
     # Remove this line if negative performance impact is observed
     params.dpi_aware_params = hello_imgui.DpiAwareParams(font_rendering_scale=0.25)
@@ -111,12 +137,20 @@ def main():
     # editor_config.navigate_button_index = 2
     addon_params = immapp.AddOnsParams(
         with_node_editor=True,
+        with_implot=True,
         with_node_editor_config=editor_config
     )
-    immapp.run(params, addon_params)
+    try:
+        immapp.run(params, addon_params)
+    except KeyboardInterrupt:
+        if measure.measurement_thread:
+            measure.measurement_thread.stop()
+        pass
 
     print("Stopping preview thread...")
     visa.preview_thread.stop()
+    if measure.measurement_thread:
+            measure.measurement_thread.stop()
 
 if __name__ == "__main__":
     main()

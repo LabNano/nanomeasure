@@ -1,6 +1,9 @@
 import threading
 from imgui_bundle import imgui
-from classes import WriteRangeNode, WriteConstantNode, Node, Pin, MeasurementNode, ChannelNode
+from classes import WriteRangeNode, WriteConstantNode, Node, Pin, MeasurementNode, ChannelNode, HeatmapNode, PlotNode
+import numpy as np
+import time
+from typing import cast, List, Mapping
 import state
 import visa
 
@@ -207,11 +210,25 @@ def render_preview():
     imgui.end_vertical()
 
 
-class MeasurementData():
-    pass 
+class MeasurementAxis:
+    def __init__(self, start, end, points):
+        self.start = start
+        self.end = end
+        self.points = points
+
+class MeasurementData:
+    axis: List[MeasurementAxis]
+    current: List[int]
+    data: np.ndarray
+
+    def __init__(self, axis: List[MeasurementAxis]):
+        self.axis = axis
+        self.current = [0] * len(axis)
+        self.data = np.full(tuple(a.points for a in self.axis), np.nan, dtype=np.float32)
 
 
 measurement_thread = None
+measurement_data: Mapping[int, MeasurementData] = {}
 def start_measure():
     global measurement_thread
     visa.disable_preview()
@@ -223,41 +240,93 @@ def stop_measure():
     global measurement_thread
     if measurement_thread:
         measurement_thread.stop()
+        make_tab_visible("Measurement Info")
+        imgui.set_window_focus("Node Editor")
+        measurement_thread = None
+
+def get_first_scan_node():
+        for node in state.nodes:
+            if isinstance(node, WriteRangeNode) and not list(node.inputs[1].connections):
+                return node
 
 class MeasurementThread(threading.Thread):
     def __init__(self):
         super().__init__()
         self.keep_running = True
 
-    def get_first_scan_node(self):
-        for node in state.nodes:
-            if isinstance(node, WriteRangeNode) and not len(node.inputs[0].connections):
-                return node
-        return None
-
 
     def run(self):
         global is_measuring
         is_measuring = True
         print("Starting measurement")
-        measurement_frames = 0
 
-        first_node = self.get_first_scan_node()
+        for node in state.nodes:
+            if isinstance(node, MeasurementNode):
+                s = []
+                for i in node.inputs[:-1]:
+                    if isinstance(list(i.connections)[0][0], WriteRangeNode):
+                        n = list(i.connections)[0][0]
+                        a = MeasurementAxis(n.start_value, n.end_value, n.points)
+                        s.append(a)
+                measurement_data[node.id] = MeasurementData(s)
 
 
-        frame = 0
-        while self.keep_running:
-            
-            # print("Hello")
-            frame += 1
-            pass
-            
+        initial_scan = get_first_scan_node()
+        def scan_node(node: WriteRangeNode, axis = 0):
+            for c in node.outputs[0].connections:
+                if isinstance(c[0], MeasurementNode):
+                    m = measurement_data[c[0].id]
+                    if m.current == [0 for i in range(len(m.axis))]:
+                        m.data = np.full(tuple(a.points for a in m.axis), np.nan, dtype=np.float32)
+
+            for i in range(node.points):
+                if not self.keep_running:
+                    return
+
+                #Set Data
+                channel = list(node.inputs[0].connections)[0]
+                try:
+                    value = node.start_value + i * (node.end_value - node.start_value) / (node.points-1)
+                    # print("Setting data: ", channel[0].outputs[channel[1]].name, value)
+                    cast(ChannelNode, channel[0]).instrument.channels[channel[1]][3](cast(ChannelNode, channel[0]).instrument.resource, value)
+                    time.sleep(node.step_time)
+                except Exception as e:
+                    print("Error setting data: ", e)
+                    pass
+                for c in node.outputs[0].connections:
+                    if not self.keep_running:
+                        return
+                    if isinstance(c[0], MeasurementNode):
+                        #Read Data
+                        m = measurement_data[c[0].id]
+                        # m.current[axis] = i
+                        print(c[1])
+                        m.current[c[1]] = i
+                        print(tuple(m.current))
+                        if np.isnan(m.data[tuple(m.current)]):
+                            channel = list(c[0].inputs[-1].connections)[0]
+                            #This line reads the data if the data is not already present
+                            # print("Reading data: ",channel[0].outputs[channel[1]].name ,tuple(m.current))
+                            try:
+                                m.data[tuple(m.current)] = cast(ChannelNode, channel[0]).instrument.channels[channel[1]][2](cast(ChannelNode, channel[0]).instrument.resource)
+                            except Exception as e:
+                                print("Error measuring data: ", e)
+                for c in node.outputs[0].connections:
+                    if isinstance(c[0], WriteRangeNode):
+                        scan_node(c[0], axis + 1)
+            # Reset current to 0 on this loop before goin back to previous
+
+            for c in node.outputs[0].connections:
+                if isinstance(c[0], MeasurementNode):
+                    m = measurement_data[c[0].id]
+                    m.current[c[1]] = 0
+        scan_node(initial_scan)
+                        
         is_measuring = False
-        print("Measurement finished")
+        if self.keep_running:
+            print("Measurement finished")
 
     def stop(self):
         self.keep_running = False
         self.join()
-        make_tab_visible("Measurement Info")
-        imgui.set_window_focus("Node Editor")
         print("Measurement interrupted")

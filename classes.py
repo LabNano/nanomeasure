@@ -223,6 +223,9 @@ class WriteRangeNode(Node):
             if pnt_changed and self.points:
                 if self.points > 1:
                     self.step = (self.end_value - self.start_value) / (self.points - 1)
+            if sv_changed or ev_changed or st_changed or stp_changed or pnt_changed or sw_changed:
+                import state
+                state.save_state()
 
         layout.add_content(_)
         layout.add_input(1)

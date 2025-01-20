@@ -1,7 +1,8 @@
 
-from imgui_bundle import imgui, imgui_node_editor as ed # type: ignore
+from imgui_bundle import imgui, imgui_node_editor as ed, implot # type: ignore
 from typing import List, Tuple
-from classes import Node, node_classes
+from classes import Node, node_classes, MeasurementNode
+import numpy as np
 import state
 import measure
 
@@ -31,6 +32,13 @@ def handle_menu():
                 state.nodes += [node()]
                 state.save_state()
             # imgui.pop_style_color()
+        _channels = [c for c in state.available_channels if c not in state.nodes]
+        if _channels and imgui.begin_menu("Add Instrument"):
+            for c in _channels:
+                if imgui.menu_item_simple(c.title):
+                    state.nodes += [c]
+                    state.save_state()
+            imgui.end_menu()
         imgui.end_popup()
     ed.resume()
 
@@ -143,6 +151,7 @@ def render_pin(node: Node, pin: int, kind: ed.PinKind = ed.PinKind.input):
     imgui.push_id(str(pin_id.id()))
     imgui.begin_horizontal("pin")
     if kind == ed.PinKind.output:
+        imgui.spring(1)
         ed.pin_pivot_alignment(imgui.ImVec2(1, 0.5))
         imgui.align_text_to_frame_padding()
         imgui.text(pin_type.name)
@@ -154,6 +163,7 @@ def render_pin(node: Node, pin: int, kind: ed.PinKind = ed.PinKind.input):
         ed.pin_pivot_alignment(imgui.ImVec2(0, 0.5))
         imgui.align_text_to_frame_padding()
         imgui.text(pin_type.name)
+        imgui.spring(1)
 
     imgui.get_window_draw_list().add_circle_filled(center, size/2, pin_type.color)
     imgui.end_horizontal()
@@ -292,3 +302,71 @@ class NodeLayout():
             _end_pins()
             self.previous_was_pin = 0
           
+
+def generate_dock_binary_tree(initial_id: "imgui.ID", num_leaves):
+    if num_leaves <= 1:
+        _ = imgui.internal.dock_builder_split_node(initial_id, imgui.Dir.down, 0.5)
+        left, right = _.id_at_opposite_dir, _.id_at_dir
+        return [left]
+    
+    nodes = {}
+    queue = [(initial_id, False)] # (node_id, is_right_split)
+    leaves = []
+
+    while len(leaves) < num_leaves:
+        current, is_right_split = queue.pop(0)
+        if is_right_split:
+            _ = imgui.internal.dock_builder_split_node(current, imgui.Dir.right, 0.5)
+            left, right = _.id_at_opposite_dir, _.id_at_dir
+        else:
+            _ = imgui.internal.dock_builder_split_node(current, imgui.Dir.down, 0.5)
+            left, right = _.id_at_opposite_dir, _.id_at_dir
+    
+        nodes[current] = (left, right)
+
+        queue.append((left, not is_right_split))
+        queue.append((right, not is_right_split))
+
+        if len(queue) + len(leaves) >= num_leaves:
+            # Mark the remaining queue as leaves and stop splitting
+            leaves.extend(node_id for node_id, _ in queue)
+            queue.clear()
+    return leaves
+
+leaves = []
+def render_measurement(measurement_dock_id):
+    global leaves
+    # _n = len([n for n in state.nodes if isinstance(n, MeasurementNode)])
+    _n = len(measure.measurement_data)
+    
+    if _n != len(leaves):
+        imgui.internal.dock_builder_remove_node(measurement_dock_id)
+        imgui.internal.dock_builder_add_node(measurement_dock_id)
+
+        leaves = generate_dock_binary_tree(measurement_dock_id, _n)
+        print("Generated plot layout")
+        for i, leaf in enumerate(leaves):
+            imgui.internal.dock_builder_dock_window(f"###Measurement{i+1}", leaf)
+
+        imgui.internal.dock_builder_finish(measurement_dock_id)
+
+
+    for i, measurement in enumerate(measure.measurement_data):
+        m = measure.measurement_data[measurement]
+        imgui.begin(f"Medida###Measurement{i+1}")
+        # imgui.text(f"Measurement {i+1}")
+        if len(m.axis) == 1:
+            if implot.begin_plot("##plot"):
+                axes_flag = implot.AxisFlags_.auto_fit
+                implot.setup_axes("", "", axes_flag, axes_flag)
+                implot.plot_line("##plotarray", m.data, flags=implot.LineFlags_.skip_na_n)
+                implot.end_plot()
+        elif len(m.axis) == 2:
+            if implot.begin_plot("##plot"):
+                axes_flag = implot.AxisFlags_.lock | implot.AxisFlags_.no_grid_lines | implot.AxisFlags_.no_tick_marks
+                implot.push_colormap(implot.Colormap_.plasma)
+                implot.setup_axes("", "", axes_flag, axes_flag)
+                implot.plot_heatmap("##plotmap", m.data, label_fmt="")
+                implot.pop_colormap()
+                implot.end_plot()
+        imgui.end()

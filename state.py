@@ -2,9 +2,11 @@ from imgui_bundle import imgui_node_editor as ed # type: ignore
 from typing import List, Tuple
 import pickle
 
-from classes import Node, ID
+from classes import Node, ID, ChannelNode
 
 nodes: List[Node] = []
+
+available_channels: List[ChannelNode] = []
 
 def save_state():
     with open("save/state.pkl", "wb") as f:
