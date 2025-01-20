@@ -1,3 +1,4 @@
+import os
 import threading
 import time
 import importlib
@@ -8,6 +9,7 @@ import pyvisa
 from pyvisa.resources import Resource
 from collections import deque
 
+os.add_dll_directory(r"C:\\Program Files\\Keysight\\IO Libraries Suite\\bin")
 rm = pyvisa.ResourceManager()
 
 debug = True
@@ -16,7 +18,7 @@ preview_thread = None
 modules = {}
 for module in [m[:-3] for m in glob("drivers/*.py")]:
     try:
-        modules[module] = importlib.import_module(module.replace("/","."))
+        modules[module] = importlib.import_module(module.replace("/",".").replace("\\","."))
     except:
         print("Failed to load module ", module)
 
@@ -34,11 +36,26 @@ class Instrument:
         self.preview_channel = 0
         self.add_instrument()
 
+    def on_load(self):
+        if hasattr(modules[self.module], "on_load"):
+            modules[self.module].on_load(self.resource)
+
+    # Necessary when pickling nodes
+    def discard_resource(self):
+        self.resource = None
+    
+    def restore_resource(self):
+        try:
+            self.resource = rm.open_resource(self.address)
+        except Exception as e:
+            print(f"Error restoring resource {self.name}: {e}")
+
     def add_instrument(self):
         """Add a new instrument to the global list to be used by the thread."""
         global instruments
         try:
             self.resource = rm.open_resource(self.address)
+            self.on_load()
             instruments.add(self) #Instrument will not be added if the connection fails
             print(f"Connected to: {self.resource.query('*IDN?')}")
         except Exception as e:
@@ -68,6 +85,7 @@ class Instrument:
 
 def find_resources() -> List[Instrument]:
     resources = []
+    print(rm.list_resources())
     for r in rm.list_resources():
         if r.startswith("ASRL"):
             continue
@@ -80,8 +98,8 @@ def find_resources() -> List[Instrument]:
                         resources = resources + [Instrument(r, inst, m)]
                 except:
                     print("Failed to match ", modules[m].name)
-        except:
-            print("Failed to query", r)
+        except Exception as e:
+            print("Failed to query", r, e)
         finally:
             inst.close()
     if debug:

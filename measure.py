@@ -154,12 +154,12 @@ def info():
                 imgui.text_wrapped(f"{c[0].instrument.channels[c[1]][0]} at {c[0].instrument.name} to constant {node.value:.2e}")
                 # imgui.text_wrapped(f"{c[0].instrument.channels[c[1]][0]} at {c[0].instrument.name} to constant {node.value:.2e}")
     
-    connected_pins = [pin for node in state.nodes for pin in node.outputs if isinstance(node, ChannelNode) if pin.connections]
+    connected_pins = [pin for node in state.nodes for pin in node.outputs if isinstance(node, ChannelNode) if pin.connections and any([isinstance(c[0], MeasurementNode) for c in pin.connections])]
     imgui.separator_text(f"Reading {len(connected_pins)} channel{'s' if len(connected_pins) != 1 else ''}")
     
     for node in state.nodes:
         if isinstance(node, ChannelNode):
-            channels = [pin for pin in node.outputs if pin.connections]
+            channels = [pin for pin in node.outputs if pin.connections and any([isinstance(c[0], MeasurementNode) for c in pin.connections])]
             if channels:
                 imgui.begin_horizontal(f"readchannels{node.id}", size=imgui.ImVec2(imgui.get_content_region_avail().x, 0))
                 imgui.text_colored(imgui.color_convert_u32_to_float4(node.color), node.title)

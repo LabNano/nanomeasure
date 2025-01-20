@@ -1,3 +1,4 @@
+import os
 from imgui_bundle import imgui_node_editor as ed # type: ignore
 from typing import List, Tuple
 import pickle
@@ -8,16 +9,28 @@ nodes: List[Node] = []
 
 available_channels: List[ChannelNode] = []
 
+script_dir = os.path.dirname(os.path.abspath(__file__))
+file_path = os.path.join(script_dir, "save", "state.pkl")
 def save_state():
-    with open("save/state.pkl", "wb") as f:
+    global nodes
+    for n in nodes:
+        if isinstance(n, ChannelNode):
+            n.instrument.discard_resource()
+    with open(file_path, "wb") as f:
         pickle.dump(nodes, f)
+    for n in nodes:
+        if isinstance(n, ChannelNode):
+            n.instrument.restore_resource()
 
 def load_state():
     global nodes
     try:
-        with open("save/state.pkl", "rb") as f:
+        with open(file_path, "rb") as f:
             nodes = pickle.load(f)
             ID._next_id = max(node.id for node in nodes) + 1
+            for n in nodes:
+                if isinstance(n, ChannelNode):
+                    n.instrument.restore_resource()
     except FileNotFoundError:
         nodes = []
 

@@ -1,7 +1,7 @@
 
 from imgui_bundle import imgui, imgui_node_editor as ed, implot # type: ignore
 from typing import List, Tuple
-from classes import Node, node_classes, MeasurementNode
+from classes import Node, node_classes, ChannelNode
 import numpy as np
 import state
 import measure
@@ -32,7 +32,7 @@ def handle_menu():
                 state.nodes += [node()]
                 state.save_state()
             # imgui.pop_style_color()
-        _channels = [c for c in state.available_channels if c not in state.nodes]
+        _channels = [c for c in state.available_channels if c.instrument.address not in [n.instrument.address for n in state.nodes if isinstance(n, ChannelNode)]]
         if _channels and imgui.begin_menu("Add Instrument"):
             for c in _channels:
                 if imgui.menu_item_simple(c.title):
@@ -366,7 +366,7 @@ def render_measurement(measurement_dock_id):
                 axes_flag = implot.AxisFlags_.lock | implot.AxisFlags_.no_grid_lines | implot.AxisFlags_.no_tick_marks
                 implot.push_colormap(implot.Colormap_.plasma)
                 implot.setup_axes("", "", axes_flag, axes_flag)
-                implot.plot_heatmap("##plotmap", m.data, label_fmt="")
+                implot.plot_heatmap("##plotmap", np.nan_to_num(m.data, nan=0.0), label_fmt="")
                 implot.pop_colormap()
                 implot.end_plot()
         imgui.end()
