@@ -358,15 +358,18 @@ def render_measurement(measurement_dock_id):
         if len(m.axis) == 1:
             if implot.begin_plot("##plot"):
                 axes_flag = implot.AxisFlags_.auto_fit
-                implot.setup_axes("", "", axes_flag, axes_flag)
-                implot.plot_line("##plotarray", m.data, flags=implot.LineFlags_.skip_na_n)
+                implot.setup_axes(m.axis[0].name, m.label, axes_flag, axes_flag)
+                scale = (m.axis[0].end - m.axis[0].start)/(m.axis[0].points - 1)
+                implot.plot_line("##plotarray", m.data, flags=implot.LineFlags_.skip_na_n, xscale=scale, xstart=m.axis[0].start)
                 implot.end_plot()
         elif len(m.axis) == 2:
             if implot.begin_plot("##plot"):
-                axes_flag = implot.AxisFlags_.lock | implot.AxisFlags_.no_grid_lines | implot.AxisFlags_.no_tick_marks
+                axes_flag = implot.AxisFlags_.auto_fit | implot.AxisFlags_.no_grid_lines | implot.AxisFlags_.no_tick_marks
                 implot.push_colormap(implot.Colormap_.plasma)
-                implot.setup_axes("", "", axes_flag, axes_flag)
-                implot.plot_heatmap("##plotmap", np.nan_to_num(m.data, nan=0.0), label_fmt="")
+                implot.setup_axes(m.axis[0].name, m.axis[1].name, axes_flag, axes_flag)
+                implot.plot_heatmap("##plotmap", np.nan_to_num(m.data, nan=0.0), label_fmt="", 
+                                    bounds_min=implot.Point(m.axis[1].start, m.axis[0].end),
+                                    bounds_max=implot.Point(m.axis[1].end, m.axis[0].start), flags=implot.HeatmapFlags_.none)
                 implot.pop_colormap()
                 implot.end_plot()
         imgui.end()

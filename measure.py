@@ -211,20 +211,26 @@ def render_preview():
 
 
 class MeasurementAxis:
-    def __init__(self, start, end, points):
+    def __init__(self, start, end, points, name, unit):
         self.start = start
         self.end = end
         self.points = points
+        self.name = name
+        self.unit = unit
 
 class MeasurementData:
     axis: List[MeasurementAxis]
     current: List[int]
     data: np.ndarray
+    label: str
+    unit: str
 
-    def __init__(self, axis: List[MeasurementAxis]):
+    def __init__(self, axis: List[MeasurementAxis], label = "", unit = ""):
         self.axis = axis
         self.current = [0] * len(axis)
         self.data = np.full(tuple(a.points for a in self.axis), np.nan, dtype=np.float32)
+        self.label = label
+        self.unit = unit
 
 
 measurement_thread = None
@@ -266,9 +272,13 @@ class MeasurementThread(threading.Thread):
                 for i in node.inputs[:-1]:
                     if isinstance(list(i.connections)[0][0], WriteRangeNode):
                         n = list(i.connections)[0][0]
-                        a = MeasurementAxis(n.start_value, n.end_value, n.points)
+                        c = list(n.inputs[0].connections)[0]
+                        channel = cast(ChannelNode, c[0]).instrument.channels[c[1]]
+                        a = MeasurementAxis(n.start_value, n.end_value, n.points, channel[0], channel[1])
                         s.append(a)
-                measurement_data[node.id] = MeasurementData(s)
+                c = list(node.inputs[-1].connections)[0]
+                channel = cast(ChannelNode, c[0]).instrument.channels[c[1]]
+                measurement_data[node.id] = MeasurementData(s, channel[0], channel[1])
 
 
         initial_scan = get_first_scan_node()

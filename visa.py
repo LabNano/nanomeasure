@@ -1,6 +1,7 @@
 import os
 import threading
 import time
+import platform
 import importlib
 import types
 from typing import List, Set, Tuple, Callable
@@ -9,7 +10,8 @@ import pyvisa
 from pyvisa.resources import Resource
 from collections import deque
 
-os.add_dll_directory(r"C:\\Program Files\\Keysight\\IO Libraries Suite\\bin")
+if platform.system() != "Darwin":
+    os.add_dll_directory(r"C:\\Program Files\\Keysight\\IO Libraries Suite\\bin")
 rm = pyvisa.ResourceManager()
 
 debug = True
