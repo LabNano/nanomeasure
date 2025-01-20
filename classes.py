@@ -96,7 +96,7 @@ class WriteConstantNode(Node):
 
     def __init__(self):
         self.inputs = [WritableChannel()]
-        self.value = 0
+        self.value = 0.0
         super().__init__()
 
     def content(self, layout):
@@ -108,7 +108,7 @@ class WriteConstantNode(Node):
             self.inputs[0].name = "Channel"
         def _():
             imgui.push_item_width(50)
-            imgui.input_float("##value", 0)
+            _, self.value = imgui.input_float("##value", self.value)
             if conns and isinstance(conns[0][0], ChannelNode):
                 imgui.same_line(0, 5)
                 imgui.text(conns[0][0].instrument.channels[conns[0][1]][1])

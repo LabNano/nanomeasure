@@ -300,9 +300,7 @@ class MeasurementThread(threading.Thread):
                         #Read Data
                         m = measurement_data[c[0].id]
                         # m.current[axis] = i
-                        print(c[1])
                         m.current[c[1]] = i
-                        print(tuple(m.current))
                         if np.isnan(m.data[tuple(m.current)]):
                             channel = list(c[0].inputs[-1].connections)[0]
                             #This line reads the data if the data is not already present
@@ -320,6 +318,15 @@ class MeasurementThread(threading.Thread):
                 if isinstance(c[0], MeasurementNode):
                     m = measurement_data[c[0].id]
                     m.current[c[1]] = 0
+  
+  
+        for node in state.nodes:
+            if isinstance(node, WriteConstantNode):
+                channel = list(node.inputs[0].connections)[0]
+                value = node.value
+                print("Setting data: ", channel[0].outputs[channel[1]].name, value)
+                cast(ChannelNode, channel[0]).instrument.channels[channel[1]][3](cast(ChannelNode, channel[0]).instrument.resource, value)
+  
         scan_node(initial_scan)
                         
         is_measuring = False
