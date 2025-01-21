@@ -1,8 +1,9 @@
 import os
 from imgui_bundle import imgui, immapp, hello_imgui, imgui_node_editor as ed # type: ignore
-import visa
 from layout import render_node, render_links, create_links, handle_menu, render_measurement, generate_dock_binary_tree
 from classes import ChannelNode
+from utils import save_file_path
+import visa
 import measure
 import state
 import platform
@@ -116,12 +117,12 @@ def main():
     visa.preview_thread.start()
 
     state.load_state()
+    measure.load_measurement()
     for instrument in visa.find_resources():
         state.available_channels += [ChannelNode(instrument)]
     if not state.nodes:
         for instrument in state.available_channels:
             state.nodes += [instrument]
-
 
     params = immapp.SimpleRunnerParams(
         gui,

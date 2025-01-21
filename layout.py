@@ -354,7 +354,7 @@ def render_measurement(measurement_dock_id):
     for i, measurement in enumerate(measure.measurement_data):
         m = measure.measurement_data[measurement]
         imgui.begin(f"Medida###Measurement{i+1}")
-        # imgui.text(f"Measurement {i+1}")
+        # imgui.text(f"Measurement {i+1}")p
         if len(m.axis) == 1:
             if implot.begin_plot("##plot"):
                 axes_flag = implot.AxisFlags_.auto_fit

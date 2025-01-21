@@ -1,4 +1,6 @@
 import threading
+import pickle
+import os
 from imgui_bundle import imgui
 from classes import WriteRangeNode, WriteConstantNode, Node, Pin, MeasurementNode, ChannelNode, HeatmapNode, PlotNode
 import numpy as np
@@ -341,9 +343,26 @@ class MeasurementThread(threading.Thread):
                         
         is_measuring = False
         if self.keep_running:
+            save_measurement()
             print("Measurement finished")
 
     def stop(self):
         self.keep_running = False
         self.join()
         print("Measurement interrupted")
+
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
+file_path = os.path.join(script_dir, "save", "measurement.pkl")
+def save_measurement():
+    global measurement_data
+    with open(file_path, "wb") as f:
+        pickle.dump(measurement_data, f)
+
+def load_measurement():
+    global measurement_data
+    try:
+        with open(file_path, "rb") as f:
+            measurement_data = pickle.load(f)
+    except FileNotFoundError:
+        pass
