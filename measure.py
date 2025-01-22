@@ -2,7 +2,7 @@ import threading
 import pickle
 import os
 from imgui_bundle import imgui
-from classes import WriteRangeNode, WriteConstantNode, Node, Pin, MeasurementNode, ChannelNode, HeatmapNode, PlotNode
+from classes import WriteRangeNode, WriteConstantNode, Node, Pin, MeasurementNode, ChannelNode
 import numpy as np
 import time
 from typing import cast, List, Mapping
@@ -264,10 +264,12 @@ class MeasurementThread(threading.Thread):
 
 
     def run(self):
+        global measurement_data
         global is_measuring
         is_measuring = True
         print("Starting measurement")
 
+        measurement_data.clear()
         for node in state.nodes:
             if isinstance(node, MeasurementNode):
                 s = []
@@ -311,11 +313,10 @@ class MeasurementThread(threading.Thread):
                     if isinstance(c[0], MeasurementNode):
                         #Read Data
                         m = measurement_data[c[0].id]
-                        # m.current[axis] = i
                         m.current[c[1]] = i
+                        #This reads the data if the data is not already present
                         if np.isnan(m.data[tuple(m.current)]):
                             channel = list(c[0].inputs[-1].connections)[0]
-                            #This line reads the data if the data is not already present
                             # print("Reading data: ",channel[0].outputs[channel[1]].name ,tuple(m.current))
                             try:
                                 m.data[tuple(m.current)] = cast(ChannelNode, channel[0]).instrument.channels[channel[1]][2](cast(ChannelNode, channel[0]).instrument.resource)

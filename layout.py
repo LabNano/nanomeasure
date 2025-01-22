@@ -1,11 +1,13 @@
 
-from imgui_bundle import imgui, imgui_node_editor as ed, implot # type: ignore
+from imgui_bundle import imgui, imgui_node_editor as ed, implot, imgui_color_text_edit as te # type: ignore
 from typing import List, Tuple
 from classes import Node, node_classes, ChannelNode
 import numpy as np
+from utils import save_file_path
 import state
 import measure
 
+# editor = te.TextEditor()
 
 def showLabel(label: str, color: imgui.ImVec4):
     imgui.set_cursor_pos_y(imgui.get_cursor_pos_y() - imgui.get_text_line_height())
@@ -351,7 +353,9 @@ def render_measurement(measurement_dock_id):
         imgui.internal.dock_builder_finish(measurement_dock_id)
 
 
-    for i, measurement in enumerate(measure.measurement_data):
+    for i, measurement in enumerate(list(measure.measurement_data)):
+        if measurement not in measure.measurement_data:
+            continue
         m = measure.measurement_data[measurement]
         imgui.begin(f"Medida###Measurement{i+1}")
         # imgui.text(f"Measurement {i+1}")p
@@ -372,4 +376,32 @@ def render_measurement(measurement_dock_id):
                                     bounds_max=implot.Point(m.axis[1].end, m.axis[0].start), flags=implot.HeatmapFlags_.none)
                 implot.pop_colormap()
                 implot.end_plot()
+        imgui.begin_horizontal("buttons")
+        if imgui.button("Save", size=imgui.ImVec2(100, 0)):
+            imgui.open_popup("Save")
+
+        if imgui.begin_popup("Save"):
+            if imgui.menu_item_simple("Numpy"):
+                path = save_file_path("Save Numpy file", default_path=f"{m.label.lower()}.npy")
+                if path:
+                    np.save(path, m.data)
+            elif imgui.menu_item_simple("Text"):
+                path = save_file_path("Save Text file", default_path=f"{m.label.lower()}.txt")
+                if path:
+                    np.savetxt(path, m.data)
+            elif imgui.menu_item_simple("Matlab"):
+                path = save_file_path("Save Matlab file", default_path=f"{m.label.lower()}.m")
+                if path:
+                    from scipy.io import savemat
+                    savemat(path, {"data": m.data})
+            elif imgui.menu_item_simple("All"):
+                path = save_file_path("Save all", default_path=f"{m.label.lower()}")
+                if path:
+                    np.save(path+".npy", m.data)
+                    np.savetxt(path+".txt", m.data)
+                    from scipy.io import savemat
+                    savemat(path+".m", {"data": m.data})
+            imgui.end_popup()
+        imgui.end_horizontal()
+        # editor.render("Editor")
         imgui.end()

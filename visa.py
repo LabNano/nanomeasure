@@ -105,9 +105,11 @@ def find_resources() -> List[Instrument]:
         finally:
             inst.close()
     if debug:
+        t = 0
         for m in modules:
             if modules[m].match_idn("TEST"):
-                resources = resources + [Instrument("TEST::INSTR", None, m)]
+                resources = resources + [Instrument(f"TEST::INSTR{t}", None, m)]
+                t += 1
         # return [Instrument("TEST::INSTR", None, m) for m in modules]
     return resources
 

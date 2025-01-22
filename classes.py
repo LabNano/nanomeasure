@@ -238,7 +238,7 @@ class WriteRangeNode(Node):
 
 class MeasurementNode(Node):
     color = imgui.IM_COL32(106, 145, 81, 255)
-    pass
+    # All MeasurementNode implementations must have a ReadableChannel as the last input
 
 class HeatmapNode(MeasurementNode):
     title = "Heatmap"
