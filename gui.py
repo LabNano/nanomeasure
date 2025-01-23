@@ -1,18 +1,13 @@
-import os
+import platform
 from imgui_bundle import imgui, immapp, hello_imgui, imgui_node_editor as ed # type: ignore
-from layout import render_node, render_links, create_links, handle_menu, render_measurement, generate_dock_binary_tree
+from layout import render_node, render_links, create_links, handle_menu
 from classes import ChannelNode
-from utils import save_file_path
+from utils import make_tab_visible
 import visa
 import measure
 import state
-import platform
+import plots
 
-def make_tab_visible(name: str):
-    window = imgui.internal.find_window_by_name(name)
-    if not window or not window.dock_node or not window.dock_node.tab_bar:
-        return
-    window.dock_node.tab_bar.next_selected_tab_id = window.tab_id
 
 is_first_frame = True
 
@@ -23,6 +18,7 @@ def gui():
     global _selected_node
     dock_id = imgui.get_id("DockSpace")
     measurement_dock_id = imgui.get_id("MeasurementDockSpace")
+    plots_dock_id = imgui.get_id("PlotsDockSpace")
     imgui.dock_space(dock_id, imgui.ImVec2(0, 0))
     
     if imgui.is_key_chord_pressed((imgui.Key.mod_super if platform.system() == "Darwin" else imgui.Key.mod_ctrl) | imgui.Key.c) or imgui.is_key_pressed(imgui.Key.escape):
@@ -41,6 +37,7 @@ def gui():
         imgui.internal.dock_builder_dock_window("Measurement Info", ids.id_at_dir)
         imgui.internal.dock_builder_dock_window("Properties", ids.id_at_dir)
         imgui.internal.dock_builder_dock_window("Measure", ids.id_at_opposite_dir)
+        imgui.internal.dock_builder_dock_window("Plots", ids.id_at_opposite_dir)
         # t = imgui.internal.dock_builder_add_node(dock_id)
 
         imgui.internal.dock_builder_finish(dock_id)
@@ -78,30 +75,18 @@ def gui():
     measure.render_preview()
     imgui.end()
 
-    # if measure.is_measuring:
     imgui.begin("Measure")
     imgui.dock_space(measurement_dock_id, imgui.ImVec2(0, 0))
     imgui.end()
 
-    render_measurement(measurement_dock_id)
+    measure.render_measurement(measurement_dock_id)
 
+    imgui.begin("Plots")
+    imgui.dock_space(plots_dock_id, imgui.ImVec2(0, 0))
+    imgui.end()
 
-    # __n = 1
-    # if is_first_frame:
-    #     imgui.internal.dock_builder_remove_node(measurement_dock_id)
-    #     imgui.internal.dock_builder_add_node(measurement_dock_id)
+    plots.render_plots(plots_dock_id)
 
-    #     leaves = generate_dock_binary_tree(measurement_dock_id, __n)
-    #     for i, leaf in enumerate(leaves):
-    #         imgui.internal.dock_builder_dock_window(f"Split {i}", leaf)
-    #         print(f"Split {i}", leaf)
-
-    #     imgui.internal.dock_builder_finish(measurement_dock_id)
-
-    # for i in range(__n):
-    #     imgui.begin(f"Split {i}")
-    #     imgui.text(f"Split {i}")
-    #     imgui.end()
 
     imgui.begin("Properties")
     imgui.end()
@@ -118,6 +103,7 @@ def main():
 
     state.load_state()
     measure.load_measurement()
+    # plots.load_plots()
     for instrument in visa.find_resources():
         state.available_channels += [ChannelNode(instrument)]
     if not state.nodes:

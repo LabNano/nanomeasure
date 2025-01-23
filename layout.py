@@ -2,10 +2,7 @@
 from imgui_bundle import imgui, imgui_node_editor as ed, implot, imgui_color_text_edit as te # type: ignore
 from typing import List, Tuple
 from classes import Node, node_classes, ChannelNode
-import numpy as np
-from utils import save_file_path
 import state
-import measure
 
 # editor = te.TextEditor()
 
@@ -203,6 +200,7 @@ def render_node(node: Node) -> ed.NodeId:
 
     rmin, rmax = node_header(node_id, node.title)
     
+    import measure
     imgui.begin_disabled(measure.is_measuring)
     layout = NodeLayout(node)
     node.content(layout)
@@ -303,105 +301,3 @@ class NodeLayout():
             _end_pin()
             _end_pins()
             self.previous_was_pin = 0
-          
-
-def generate_dock_binary_tree(initial_id: "imgui.ID", num_leaves):
-    if num_leaves <= 1:
-        _ = imgui.internal.dock_builder_split_node(initial_id, imgui.Dir.down, 0.5)
-        left, right = _.id_at_opposite_dir, _.id_at_dir
-        return [left]
-    
-    nodes = {}
-    queue = [(initial_id, False)] # (node_id, is_right_split)
-    leaves = []
-
-    while len(leaves) < num_leaves:
-        current, is_right_split = queue.pop(0)
-        if is_right_split:
-            _ = imgui.internal.dock_builder_split_node(current, imgui.Dir.right, 0.5)
-            left, right = _.id_at_opposite_dir, _.id_at_dir
-        else:
-            _ = imgui.internal.dock_builder_split_node(current, imgui.Dir.down, 0.5)
-            left, right = _.id_at_opposite_dir, _.id_at_dir
-    
-        nodes[current] = (left, right)
-
-        queue.append((left, not is_right_split))
-        queue.append((right, not is_right_split))
-
-        if len(queue) + len(leaves) >= num_leaves:
-            # Mark the remaining queue as leaves and stop splitting
-            leaves.extend(node_id for node_id, _ in queue)
-            queue.clear()
-    return leaves
-
-leaves = []
-def render_measurement(measurement_dock_id):
-    global leaves
-    # _n = len([n for n in state.nodes if isinstance(n, MeasurementNode)])
-    _n = len(measure.measurement_data)
-    
-    if _n != len(leaves):
-        imgui.internal.dock_builder_remove_node(measurement_dock_id)
-        imgui.internal.dock_builder_add_node(measurement_dock_id)
-
-        leaves = generate_dock_binary_tree(measurement_dock_id, _n)
-        print("Generated plot layout")
-        for i, leaf in enumerate(leaves):
-            imgui.internal.dock_builder_dock_window(f"###Measurement{i+1}", leaf)
-
-        imgui.internal.dock_builder_finish(measurement_dock_id)
-
-
-    for i, measurement in enumerate(list(measure.measurement_data)):
-        if measurement not in measure.measurement_data:
-            continue
-        m = measure.measurement_data[measurement]
-        imgui.begin(f"Medida###Measurement{i+1}")
-        # imgui.text(f"Measurement {i+1}")p
-        if len(m.axis) == 1:
-            if implot.begin_plot("##plot"):
-                axes_flag = implot.AxisFlags_.auto_fit
-                implot.setup_axes(m.axis[0].name, m.label, axes_flag, axes_flag)
-                scale = (m.axis[0].end - m.axis[0].start)/(m.axis[0].points - 1)
-                implot.plot_line("##plotarray", m.data, flags=implot.LineFlags_.skip_na_n, xscale=scale, xstart=m.axis[0].start)
-                implot.end_plot()
-        elif len(m.axis) == 2:
-            if implot.begin_plot("##plot"):
-                axes_flag = implot.AxisFlags_.auto_fit | implot.AxisFlags_.no_grid_lines | implot.AxisFlags_.no_tick_marks
-                implot.push_colormap(implot.Colormap_.plasma)
-                implot.setup_axes(m.axis[0].name, m.axis[1].name, axes_flag, axes_flag)
-                implot.plot_heatmap("##plotmap", np.nan_to_num(m.data, nan=0.0), label_fmt="", 
-                                    bounds_min=implot.Point(m.axis[1].start, m.axis[0].end),
-                                    bounds_max=implot.Point(m.axis[1].end, m.axis[0].start), flags=implot.HeatmapFlags_.none)
-                implot.pop_colormap()
-                implot.end_plot()
-        imgui.begin_horizontal("buttons")
-        if imgui.button("Save", size=imgui.ImVec2(100, 0)):
-            imgui.open_popup("Save")
-
-        if imgui.begin_popup("Save"):
-            if imgui.menu_item_simple("Numpy"):
-                path = save_file_path("Save Numpy file", default_path=f"{m.label.lower()}.npy")
-                if path:
-                    np.save(path, m.data)
-            elif imgui.menu_item_simple("Text"):
-                path = save_file_path("Save Text file", default_path=f"{m.label.lower()}.txt")
-                if path:
-                    np.savetxt(path, m.data)
-            elif imgui.menu_item_simple("Matlab"):
-                path = save_file_path("Save Matlab file", default_path=f"{m.label.lower()}.m")
-                if path:
-                    from scipy.io import savemat
-                    savemat(path, {"data": m.data})
-            elif imgui.menu_item_simple("All"):
-                path = save_file_path("Save all", default_path=f"{m.label.lower()}")
-                if path:
-                    np.save(path+".npy", m.data)
-                    np.savetxt(path+".txt", m.data)
-                    from scipy.io import savemat
-                    savemat(path+".m", {"data": m.data})
-            imgui.end_popup()
-        imgui.end_horizontal()
-        # editor.render("Editor")
-        imgui.end()

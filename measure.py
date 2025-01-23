@@ -1,13 +1,16 @@
 import threading
 import pickle
 import os
-from imgui_bundle import imgui
-from classes import WriteRangeNode, WriteConstantNode, Node, Pin, MeasurementNode, ChannelNode
 import numpy as np
-import time
 from typing import cast, List, Mapping
+from imgui_bundle import imgui, implot
+from utils import save_file_path
+from classes import WriteRangeNode, WriteConstantNode, Node, Pin, MeasurementNode, ChannelNode, IdProvider
+from utils import generate_dock_binary_tree
+import time
 import state
 import visa
+import plots
 
 is_measuring = False
 
@@ -220,6 +223,7 @@ class MeasurementAxis:
         self.name = name
         self.unit = unit
 
+MID = IdProvider()
 class MeasurementData:
     axis: List[MeasurementAxis]
     current: List[int]
@@ -233,6 +237,23 @@ class MeasurementData:
         self.data = np.full(tuple(a.points for a in self.axis), np.nan, dtype=np.float32)
         self.label = label
         self.unit = unit
+        self.id = MID.next_id()
+
+    def save_numpy(self, path: str):
+        _d = {
+            "axis": [(a.start, a.end, a.points, a.name, a.unit) for a in self.axis],
+            "measurement": self.data,
+            "data_label": self.label,
+            "data_unit": self.unit
+        }
+        np.save(path, _d, allow_pickle=True)
+
+    def save_txt(self, path: str):
+        np.savetxt(path, self.data)
+
+    def save_mat(self, path: str):
+        from scipy.io import savemat
+        savemat(path, {"data": self.data})
 
 
 measurement_thread = None
@@ -247,9 +268,12 @@ def start_measure():
 def stop_measure():
     global measurement_thread
     if measurement_thread:
-        measurement_thread.stop()
-        make_tab_visible("Measurement Info")
-        imgui.set_window_focus("Node Editor")
+        if measurement_thread.keep_running:
+            measurement_thread.stop()
+            make_tab_visible("Measurement Info")
+            imgui.set_window_focus("Node Editor")
+        else:
+            measurement_thread.stop()
         measurement_thread = None
 
 def get_first_scan_node():
@@ -346,6 +370,7 @@ class MeasurementThread(threading.Thread):
         if self.keep_running:
             save_measurement()
             print("Measurement finished")
+            self.keep_running = False
 
     def stop(self):
         self.keep_running = False
@@ -365,5 +390,81 @@ def load_measurement():
     try:
         with open(file_path, "rb") as f:
             measurement_data = pickle.load(f)
+            MID._next_id = max(measurement_data[m].id for m in measurement_data) + 1
     except FileNotFoundError:
         pass
+
+
+leaves = []
+def render_measurement(measurement_dock_id):
+    global leaves
+    _n = len(measurement_data)
+    
+    if _n != len(leaves):
+        imgui.internal.dock_builder_remove_node(measurement_dock_id)
+        imgui.internal.dock_builder_add_node(measurement_dock_id)
+
+        leaves = generate_dock_binary_tree(measurement_dock_id, _n)
+        # print("Generated plot layout")
+        for i, leaf in enumerate(leaves):
+            imgui.internal.dock_builder_dock_window(f"###Measurement{i+1}", leaf)
+            dn = imgui.internal.dock_builder_get_node(leaf)
+            dn.local_flags = imgui.DockNodeFlags_.auto_hide_tab_bar
+
+        imgui.internal.dock_builder_finish(measurement_dock_id)
+
+
+    for i, measurement in enumerate(list(measurement_data)):
+        if measurement not in measurement_data:
+            continue
+        m = measurement_data[measurement]
+        imgui.begin(f"Medida###Measurement{i+1}")
+        imgui.begin_vertical("measurement")
+        # imgui.text(f"Measurement {i+1}")p
+        if len(m.axis) == 1:
+            if implot.begin_plot("##plot"):
+                axes_flag = implot.AxisFlags_.none # | implot.AxisFlags_.auto_fit
+                implot.setup_axes(m.axis[0].name, m.label, axes_flag, axes_flag)
+                scale = (m.axis[0].end - m.axis[0].start)/(max(m.axis[0].points - 1, 1))
+                implot.plot_line("##plotarray", m.data, flags=implot.LineFlags_.skip_na_n, xscale=scale, xstart=m.axis[0].start)
+                implot.end_plot()
+        elif len(m.axis) == 2:
+            if implot.begin_plot("##plot"):
+                axes_flag = implot.AxisFlags_.auto_fit | implot.AxisFlags_.no_grid_lines | implot.AxisFlags_.no_tick_marks
+                implot.push_colormap(implot.Colormap_.plasma)
+                implot.setup_axes(m.axis[0].name, m.axis[1].name, axes_flag, axes_flag)
+                implot.plot_heatmap("##plotmap", np.nan_to_num(m.data, nan=0.0), label_fmt="", 
+                                    bounds_min=implot.Point(m.axis[1].start, m.axis[0].end),
+                                    bounds_max=implot.Point(m.axis[1].end, m.axis[0].start), flags=implot.HeatmapFlags_.none)
+                implot.pop_colormap()
+                implot.end_plot()
+        imgui.begin_horizontal("buttons", size=imgui.ImVec2(0, 25), align=1.0)
+        imgui.spring(1)
+        if imgui.button("Save", size=imgui.ImVec2(100, 0)):
+            imgui.open_popup("Save")
+        
+        if imgui.begin_popup("Save"):
+            if imgui.menu_item_simple("Numpy"):
+                path = save_file_path("Save Numpy file", default_path=f"{m.label.lower()}.npy")
+                if path:
+                    m.save_numpy(path)
+            elif imgui.menu_item_simple("Text"):
+                path = save_file_path("Save Text file", default_path=f"{m.label.lower()}.txt")
+                if path:
+                    m.save_txt(path)
+            elif imgui.menu_item_simple("Matlab"):
+                path = save_file_path("Save Matlab file", default_path=f"{m.label.lower()}.m")
+                if path:
+                    m.save_mat(path+".m")
+            elif imgui.menu_item_simple("All"):
+                path = save_file_path("Save all", default_path=f"{m.label.lower()}")
+                if path:
+                    m.save_numpy(path+".npy")
+                    m.save_txt(path+".txt")
+                    m.save_mat(path+".m")
+            imgui.end_popup()
+        if imgui.button("Plot", size=imgui.ImVec2(100, 0)):
+            plots.add_plot(m)
+        imgui.end_horizontal()
+        imgui.end_vertical()
+        imgui.end()
