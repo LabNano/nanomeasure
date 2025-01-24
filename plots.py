@@ -100,6 +100,10 @@ def plot_data(data):
         _d = self.formated_data()
         np.save(path, _d, allow_pickle=True)
 
+    def save_code(self, path):
+        with open(path, "w") as out:
+            out.write(self.editor.get_text())
+
     def make_picklable(self):
         self._bkp_text = self.editor.get_text()
         self.fig = None
@@ -134,7 +138,7 @@ def render_plots(plots_dock_id):
         imgui.internal.dock_builder_finish(plots_dock_id)
 
     for i, plot in enumerate(plots):
-        imgui.begin(f"Plot###Plot{plot.data_id}")
+        imgui.begin(f"{i+1}###Plot{plot.data_id}")
         imgui.begin_horizontal(f"plt{i+1}")
         # imgui.text("Imagina uma imagem do matplotlib aqui")
         imgui.begin_vertical("plot_vert")
@@ -150,9 +154,9 @@ def render_plots(plots_dock_id):
         if imgui.button("Run", size=imgui.ImVec2(80, 0)):
             plot.run_code()
         if imgui.button("Save this code"):
-            path = save_file_path("Save python code", default_path=f"{plot.data_label.lower()}.npy")
+            path = save_file_path("Save python code", default_path=f"{plot.data_label.lower()}.py")
             if path:
-                plot.save_numpy(path)
+                plot.save_code(path)
         if imgui.button("Save Numpy data"):
             path = save_file_path("Save .npy file", default_path=f"{plot.data_label.lower()}.npy")
             if path:

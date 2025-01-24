@@ -36,6 +36,7 @@ class Instrument:
         self.preview = False
         self.preview_buffer = deque(maxlen=300)
         self.preview_channel = 0
+        self.channels: List[Tuple[str, str, Callable, Callable]] = [list(c) + [True] for c in getattr(modules[self.module], "channels", [])]
         self.add_instrument()
 
     def on_load(self):
@@ -79,11 +80,11 @@ class Instrument:
             return modules[self.module].short_name
         return self.name
     
-    @property
-    def channels(self) -> List[Tuple[str, str, Callable, Callable]]:
-        if hasattr(modules[self.module], "channels"):
-            return modules[self.module].channels
-        return []
+    # @property
+    # def channels(self) -> List[Tuple[str, str, Callable, Callable]]:
+    #     if hasattr(modules[self.module], "channels"):
+    #         return modules[self.module].channels
+    #     return []
 
 def find_resources() -> List[Instrument]:
     resources = []

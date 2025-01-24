@@ -234,7 +234,7 @@ class MeasurementData:
     def __init__(self, axis: List[MeasurementAxis], label = "", unit = ""):
         self.axis = axis
         self.current = [0] * len(axis)
-        self.data = np.full(tuple(a.points for a in self.axis), np.nan, dtype=np.float32)
+        self.data = np.full(tuple(reversed([a.points for a in self.axis])), np.nan, dtype=np.float32)
         self.label = label
         self.unit = unit
         self.id = MID.next_id()
@@ -249,7 +249,12 @@ class MeasurementData:
         np.save(path, _d, allow_pickle=True)
 
     def save_txt(self, path: str):
-        np.savetxt(path, self.data)
+        header = ""
+        for i,a in enumerate(self.axis):
+            _a = ["x", "y", "z", "t"][i]
+            header += f"{_a}: {a.name} ({a.unit}) from {a.start} to {a.end} with {a.points} points\n"
+        header += f"Measurement of {self.label} ({self.unit})\n"
+        np.savetxt(path, self.data, header=header)
 
     def save_mat(self, path: str):
         from scipy.io import savemat
@@ -310,17 +315,15 @@ class MeasurementThread(threading.Thread):
 
 
         initial_scan = get_first_scan_node()
-        def scan_node(node: WriteRangeNode, axis = 0):
-            for c in node.outputs[0].connections:
-                if isinstance(c[0], MeasurementNode):
-                    m = measurement_data[c[0].id]
-                    if m.current == [0 for i in range(len(m.axis))]:
-                        m.data = np.full(tuple(a.points for a in m.axis), np.nan, dtype=np.float32)
+        def scan_node(node: WriteRangeNode, axis = 0, parent_index = 0, parent_points = 1):
+            if node.clock_type != 1:
+                for c in node.outputs[0].connections:
+                    if isinstance(c[0], MeasurementNode):
+                        m = measurement_data[c[0].id]
+                        if m.current == [0 for i in range(len(m.axis))]:
+                            m.data = np.full(tuple(reversed([a.points for a in m.axis])), np.nan, dtype=np.float32)
 
-            for i in range(node.points):
-                if not self.keep_running:
-                    return
-
+            def set_and_read(i):
                 #Set Data
                 channel = list(node.inputs[0].connections)[0]
                 try:
@@ -339,22 +342,31 @@ class MeasurementThread(threading.Thread):
                         m = measurement_data[c[0].id]
                         m.current[c[1]] = i
                         #This reads the data if the data is not already present
-                        if np.isnan(m.data[tuple(m.current)]):
+                        if np.isnan(m.data[tuple(reversed(m.current))]):
                             channel = list(c[0].inputs[-1].connections)[0]
                             # print("Reading data: ",channel[0].outputs[channel[1]].name ,tuple(m.current))
                             try:
-                                m.data[tuple(m.current)] = cast(ChannelNode, channel[0]).instrument.channels[channel[1]][2](cast(ChannelNode, channel[0]).instrument.resource)
+                                m.data[tuple(reversed(m.current))] = cast(ChannelNode, channel[0]).instrument.channels[channel[1]][2](cast(ChannelNode, channel[0]).instrument.resource)
                             except Exception as e:
                                 print("Error measuring data: ", e)
                 for c in node.outputs[0].connections:
                     if isinstance(c[0], WriteRangeNode):
-                        scan_node(c[0], axis + 1)
+                        scan_node(c[0], axis + 1, parent_index=i, parent_points=node.points)
+
+            if node.clock_type == 1:
+                set_and_read(parent_index)
+            else:
+                for i in range(node.points):
+                    if not self.keep_running:
+                        return
+                    set_and_read(i)
             # Reset current to 0 on this loop before goin back to previous
 
             for c in node.outputs[0].connections:
                 if isinstance(c[0], MeasurementNode):
                     m = measurement_data[c[0].id]
-                    m.current[c[1]] = 0
+                    if node.clock_type != 1:
+                        m.current[c[1]] = 0
   
   
         for node in state.nodes:
@@ -434,8 +446,8 @@ def render_measurement(measurement_dock_id):
                 implot.push_colormap(implot.Colormap_.plasma)
                 implot.setup_axes(m.axis[0].name, m.axis[1].name, axes_flag, axes_flag)
                 implot.plot_heatmap("##plotmap", np.nan_to_num(m.data, nan=0.0), label_fmt="", 
-                                    bounds_min=implot.Point(m.axis[1].start, m.axis[0].end),
-                                    bounds_max=implot.Point(m.axis[1].end, m.axis[0].start), flags=implot.HeatmapFlags_.none)
+                                    bounds_min=implot.Point(m.axis[0].start, m.axis[1].end),
+                                    bounds_max=implot.Point(m.axis[0].end, m.axis[1].start), flags=implot.HeatmapFlags_.none)
                 implot.pop_colormap()
                 implot.end_plot()
         imgui.begin_horizontal("buttons", size=imgui.ImVec2(0, 25), align=1.0)

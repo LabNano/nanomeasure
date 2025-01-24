@@ -60,7 +60,7 @@ def gui():
         _selected_node = None
     _selected_node = s.id()
     if _selected_node != _old_node:
-        if isinstance(state.get_node_by_id(s.id()), ChannelNode):
+        if isinstance(state.get_node_by_id(_selected_node), ChannelNode):
             make_tab_visible("Properties")
         else:
             make_tab_visible("Measurement Info")
@@ -89,6 +89,9 @@ def gui():
 
 
     imgui.begin("Properties")
+    node = state.get_node_by_id(_selected_node)
+    if isinstance(node, ChannelNode):
+        node.draw_properties()
     imgui.end()
 
     if is_first_frame:

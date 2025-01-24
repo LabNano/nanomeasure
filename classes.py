@@ -27,6 +27,7 @@ class Pin:
         if color:
             self.color = color
         self.connections = set()
+        self.disabled = False
         pass
 
 class ReadableChannel(Pin):
@@ -52,9 +53,11 @@ class Node:
 
     def content(self, layout: "NodeLayout"):
         for i,_ in enumerate(self.inputs):
-            layout.add_input(i)
+            if not _.disabled:
+                layout.add_input(i)
         for o,_ in enumerate(self.outputs):
-            layout.add_output(o)
+            if not _.disabled:
+                layout.add_output(o)
         layout.add_content(self.drawExtras)
 
     def on_connect(self, pin: int, kind: ed.PinKind):
@@ -70,7 +73,7 @@ class ChannelNode(Node):
     def __init__(self, instrument: visa.Instrument):
         self.instrument = instrument
         self.title = instrument.name
-        self.outputs = [WritableChannel(c[0]) if c[3] else ReadableChannel(c[0]) for c in  instrument.channels]
+        self.outputs = [WritableChannel(c[0]) if c[3] else ReadableChannel(c[0]) for c in self.instrument.channels]
         super().__init__()
 
     def drawExtras(self):
@@ -90,6 +93,25 @@ class ChannelNode(Node):
                              0 if len(self.instrument.preview_buffer) == 0 else np.min(self.instrument.preview_buffer), 
                              0 if len(self.instrument.preview_buffer) == 0 else np.max(self.instrument.preview_buffer), 
                              imgui.ImVec2(300, 60))
+            
+    def draw_properties(self):
+        imgui.separator_text(self.instrument.name)
+        imgui.text(self.instrument.idn or "No IDN")
+        imgui.text(self.instrument.address)
+        for i,c in enumerate(self.instrument.channels):
+            imgui.begin_horizontal(f"channel{i}")
+            _, enabled = imgui.checkbox(f"##channel_enabled{i}", not self.outputs[i].disabled)
+            if _:
+                if enabled or not self.outputs[i].connections:
+                    self.outputs[i].disabled = not enabled
+                        
+            imgui.text(f"Channel {i+1}: {visa.modules[self.instrument.module].channels[i][0]} ({c[1]})")
+            _, c[0] = imgui.input_text(f"##channel_name{i}", c[0])
+            if _:
+                self.outputs[i].name = c[0]
+            imgui.end_horizontal()
+        imgui.text(f"Preview: {self.instrument.preview}")
+        imgui.text(f"Preview Channel: {self.instrument.channels[self.instrument.preview_channel][0]}")
 
 class WriteConstantNode(Node):
     title = "Write Constant"
@@ -232,8 +254,11 @@ class WriteRangeNode(Node):
         def _():
             if conn:
                 imgui.push_item_width(100)
-                _, self.clock_type = imgui.combo("##type", self.clock_type, ["Scan", "Sync"])
+                type_changed, self.clock_type = imgui.combo("##type", self.clock_type, ["Scan", "Sync"])
                 imgui.pop_item_width()
+                if type_changed:
+                    if self.clock_type == 1:
+                        self.points = conn[0][0].points
         layout.add_content(_)
 
 class MeasurementNode(Node):
