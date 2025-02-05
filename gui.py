@@ -1,6 +1,6 @@
 import platform
 from imgui_bundle import imgui, immapp, hello_imgui, imgui_node_editor as ed # type: ignore
-from layout import render_node, render_links, create_links, handle_menu
+from layout import render_node, render_links, create_links, handle_menu, draw_properties as draw_layout_properties
 from classes import ChannelNode
 from utils import make_tab_visible
 import visa
@@ -34,6 +34,8 @@ def gui():
         imgui.spacing()
         ids = imgui.internal.dock_builder_split_node(dock_id, imgui.Dir.right, 0.25)
         imgui.internal.dock_builder_dock_window("Node Editor", ids.id_at_opposite_dir)
+        dn = imgui.internal.dock_builder_get_node(ids.id_at_opposite_dir)
+        dn.local_flags = imgui.DockNodeFlags_.auto_hide_tab_bar
         imgui.internal.dock_builder_dock_window("Measurement Info", ids.id_at_dir)
         imgui.internal.dock_builder_dock_window("Properties", ids.id_at_dir)
         imgui.internal.dock_builder_dock_window("Measure", ids.id_at_opposite_dir)
@@ -92,6 +94,8 @@ def gui():
     node = state.get_node_by_id(_selected_node)
     if isinstance(node, ChannelNode):
         node.draw_properties()
+    else:
+        draw_layout_properties()
     imgui.end()
 
     if is_first_frame:

@@ -61,12 +61,15 @@ class Instrument:
             self.on_load()
             instruments.add(self) #Instrument will not be added if the connection fails
             print(f"Connected to: {self.resource.query('*IDN?')}")
+            return True
         except Exception as e:
             if debug and modules[self.module].match_idn("TEST"):
                 instruments.add(self)
                 print(f"Connected to: {self.name} (TEST)")
+                return True
             else:
                 print(f"Error connecting to {self.name}: {e}")
+                return False
 
     @property
     def name(self):

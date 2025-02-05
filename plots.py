@@ -1,7 +1,7 @@
 import importlib.util
 import os
 import pickle
-from imgui_bundle import imgui, imgui_color_text_edit as te, imgui_fig
+from imgui_bundle import imgui, imgui_color_text_edit as te, imgui_fig, ImVec2
 from utils import save_file_path
 from typing import TYPE_CHECKING, List
 import numpy as np
@@ -23,6 +23,7 @@ class Plot():
         self.refresh = False
         self.editor = te.TextEditor()
         self.editor.set_language_definition(te.TextEditor.LanguageDefinition.python())
+        self.fig_size = None
         if len(self.axis) == 1:
             self.editor.set_text(
 f"""import numpy as np
@@ -118,7 +119,6 @@ def plot_data(data):
 
 plots: List[Plot] = []
 leaves = []
-size = None
 def render_plots(plots_dock_id):
     global leaves
     global size
@@ -143,7 +143,9 @@ def render_plots(plots_dock_id):
         # imgui.text("Imagina uma imagem do matplotlib aqui")
         imgui.begin_vertical("plot_vert")
         if plot.fig:
-            imgui_fig.fig("Plot", plot.fig, size=size, refresh_image=plot.refresh)
+            if plots[i].fig_size is None:
+                plots[i].fig_size = ImVec2(imgui.get_content_region_avail().x/2, 0)
+            imgui_fig.fig("Plot", plot.fig, size=plot.fig_size, refresh_image=plot.refresh)
             plot.refresh = False
         if plot.error:
             imgui.text_colored(imgui.ImVec4(242/255, 78/255, 78/255, 1), "Error: " + plot.error)

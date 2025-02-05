@@ -195,7 +195,7 @@ def render_preview():
     imgui.spring(0, 20)
 
 
-
+    imgui.push_style_color(imgui.Col_.text, imgui.ImVec4(1, 1, 1, 1))
     if not errors and not is_measuring:
         imgui.push_style_color(imgui.Col_.button, imgui.ImVec4(103/255, 153/255, 103/255, 1))
         imgui.push_style_color(imgui.Col_.button_hovered, imgui.ImVec4(89/255, 133/255, 90/255, 1))
@@ -209,6 +209,7 @@ def render_preview():
             stop_measure()
         elif not errors:
             start_measure()
+    imgui.pop_style_color()
     imgui.pop_style_color()
     imgui.pop_style_color()
     imgui.pop_style_color()

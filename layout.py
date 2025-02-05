@@ -1,5 +1,5 @@
 
-from imgui_bundle import imgui, imgui_node_editor as ed, implot, imgui_color_text_edit as te # type: ignore
+from imgui_bundle import imgui, imgui_node_editor as ed, hello_imgui# type: ignore
 from typing import List, Tuple
 from classes import Node, node_classes, ChannelNode
 import state
@@ -179,7 +179,9 @@ def render_pin(node: Node, pin: int, kind: ed.PinKind = ed.PinKind.input):
 
 
 def node_header(node_id: ed.NodeId, title: str) -> Tuple[imgui.ImVec2, imgui.ImVec2]:
+    imgui.push_style_color(imgui.Col_.text, imgui.ImVec4(1, 1, 1, 1))
     imgui.text(title)
+    imgui.pop_style_color()
     imgui.spacing()
     padd = ed.get_style().node_padding
     rmin = ed.get_node_position(node_id)
@@ -301,3 +303,17 @@ class NodeLayout():
             _end_pin()
             _end_pins()
             self.previous_was_pin = 0
+
+
+_themes = {
+    "Dark": hello_imgui.ImGuiTheme_.darcula_darker,
+    "White": hello_imgui.ImGuiTheme_.imgui_colors_light,
+    "Purple": hello_imgui.ImGuiTheme_.imgui_colors_classic,
+}
+theme = 0
+def draw_properties():
+    global theme
+    imgui.separator_text("NanoMeasure Properties")
+    _, theme = imgui.combo("Color Theme", theme, list(_themes.keys()))
+    if _:
+        hello_imgui.apply_theme(_themes[list(_themes.keys())[theme]])
