@@ -110,6 +110,12 @@ class ChannelNode(Node):
             if _:
                 self.outputs[i].name = c[0]
             imgui.end_horizontal()
+
+            imgui.begin_horizontal(f"ramp{i}")
+            imgui.align_text_to_frame_padding()
+            imgui.text("Ramp: ")
+            _, c[5] = imgui.input_float("##ramp", c[5])
+            imgui.end_horizontal()
         imgui.text(f"Preview: {self.instrument.preview}")
         imgui.text(f"Preview Channel: {self.instrument.channels[self.instrument.preview_channel][0]}")
 

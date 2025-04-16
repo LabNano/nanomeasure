@@ -36,7 +36,7 @@ class Instrument:
         self.preview = False
         self.preview_buffer = deque(maxlen=300)
         self.preview_channel = 0
-        self.channels: List[Tuple[str, str, Callable, Callable]] = [list(c) + [True] for c in getattr(modules[self.module], "channels", [])]
+        self.channels: List[Tuple[str, str, Callable, Callable, bool, float]] = [list(c) + [True, 1.0] for c in getattr(modules[self.module], "channels", [])]
         self.add_instrument()
 
     def on_load(self):
